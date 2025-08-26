@@ -1,0 +1,245 @@
+Prompt for Replit
+
+Title: Build a modular school theater web app (Claret Sevilla theme)
+
+Goal: Create a modern, scalable web application for a theater school. It should include a public-facing website (blog, gallery, events), a ticket reservation system (no payments, just PDF with QR), and an admin back office to manage content, users, and reservations. Use a clean architecture, role-based access, and a database schema that supports future growth.
+
+Roles
+
+Admin: full control; manage content, users, events, base ticket price, delete posts/plays, hide gallery.
+
+Monitor/Teacher: create/manage/delete their own plays/events.
+
+Registered User (Spectator): log in, reserve tickets, download PDFs, receive emails, manage profile.
+
+Public Visitor: view news (blog), plays, optional gallery, and contact form.
+
+Key Features
+
+Landing Page as Blog
+
+/ shows latest posts (Spanish content).
+
+Post CRUD (admin/monitor).
+
+Hide/show posts.
+
+Event & Play Management
+
+Create/edit/delete plays (admin + monitor).
+
+Upload posters, descriptions, date/time, base ticket price (€5 default).
+
+Event detail pages.
+
+Ticket Reservations
+
+Logged-in users reserve seats.
+
+Ticket PDF generated with QR code.
+
+QR validation endpoint for entry checks.
+
+Base price shown (no payments processed).
+
+User Registration & Authentication
+
+Registration must be independent from Replit’s auth.
+
+Options:
+
+Sign up/sign in with email + password.
+
+OAuth login with Google account.
+
+Password reset flow (email).
+
+RBAC enforced for all roles.
+
+User & Role Management
+
+Admin manages users and roles.
+
+Registered users manage their profile.
+
+Gallery (optional)
+
+Image/video gallery.
+
+Admin can hide gallery section.
+
+Email System
+
+All emails sent from admin@... via Google connection.
+
+Templates for confirmations, reminders, news.
+
+Admin Panel
+
+Manage posts, plays/events, users, gallery.
+
+Edit base ticket price.
+
+Hide sections (gallery, posts).
+
+Public Sections
+
+News/blog
+
+Plays & events (list + detail)
+
+Gallery (if enabled)
+
+Contact form (sends email to admin)
+
+Tech Guidelines
+
+Frontend: React (with Router), TypeScript, Tailwind CSS.
+
+Backend: Node.js + Express, TypeScript, Prisma ORM.
+
+DB: PostgreSQL (SQLite for dev).
+
+Auth: JWT with roles (admin, monitor, user, public).
+
+Infra: Docker, .env, ESLint, Prettier, tests.
+
+Accessibility & SEO: WCAG 2.2 AA, Core Web Vitals, metadata for SEO.
+
+Languages: Spanish default, ready for English.
+
+Database Models
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?
+  googleId  String?   // for OAuth login
+  name      String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+enum Role { ADMIN MONITOR USER }
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  body      Json
+  status    String   @default("published")
+  createdBy String
+  createdAt DateTime @default(now())
+}
+
+model Play {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  posterUrl   String?
+  dateTime    DateTime
+  basePrice   Float    @default(5.0)
+  createdBy   String
+  createdAt   DateTime @default(now())
+}
+
+model Ticket {
+  id        String   @id @default(cuid())
+  userId    String
+  playId    String
+  qrCode    String
+  createdAt DateTime @default(now())
+}
+
+Theming & Artistic Direction
+
+Inspired by Colegio Claret Sevilla colors:
+
+Primary yellow #FFD200, dark yellow #E6BD00
+
+Primary blue #1F4AA8, navy #15367A
+
+Accent red #C8102E for alerts
+
+White background, muted gray for text
+
+Clean, bright layout.
+
+Rounded corners, soft shadows.
+
+Lucide icons + Framer Motion for micro-interactions.
+
+Accessibility ensured with ≥ 4.5:1 contrast.
+
+Components
+
+Header (logo, nav, locale switcher)
+
+Hero (headline + CTA)
+
+Card, Button, Badge, Modal, Toast
+
+PostList, PostCard, PostDetail
+
+EventCalendar + EventCard
+
+FormStepper, FileUpload
+
+UserMenu (avatar + role)
+
+ThemeProvider (CSS vars)
+
+Project Structure
+apps/
+  web/                 
+    src/
+      components/
+      pages/ or routes/
+      features/
+        auth/
+        posts/
+        events/
+        admissions/
+      lib/
+      styles/
+      i18n/
+      tests/
+  api/                 
+    src/
+      modules/
+        auth/
+        posts/
+        events/
+        forms/
+      middleware/
+      prisma/
+      tests/
+packages/
+  ui/                  
+  config/              
+
+Seeds & Demo Data
+
+Admin + monitor users
+
+Sample posts
+
+Sample events
+
+Example ticket reservations
+
+Quality Gates
+
+Type-safe end-to-end
+
+Unit + integration + component tests
+
+Pre-commit hooks (lint, typecheck, tests)
+
+Deliverables
+
+Running dev environment (docker compose up)
+
+README with setup & env vars
+
+.env.example with DB URL, JWT, SMTP
+
+Documented theme variables
