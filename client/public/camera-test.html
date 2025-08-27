@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Test - HTTPS</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .camera-container {
+            border: 2px solid #333;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        video {
+            max-width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>📱 Camera Test - HTTPS</h1>
+    
+    <div class="status info">
+        <h3>🔒 HTTPS Camera Access Test</h3>
+        <p>This page tests camera access over HTTPS for the validation system.</p>
+    </div>
+
+    <div class="camera-container">
+        <h3>🎥 Camera Test</h3>
+        <div id="status" class="status info">Click "Start Camera" to test camera access</div>
+        
+        <div id="videoContainer" style="display: none;">
+            <video id="video" autoplay playsInline muted></video>
+        </div>
+        
+        <div id="controls">
+            <button id="startBtn" class="btn-primary" onclick="startCamera()">Start Camera</button>
+            <button id="stopBtn" class="btn-danger" onclick="stopCamera()" style="display: none;">Stop Camera</button>
+        </div>
+    </div>
+
+    <div class="status info">
+        <h3>📋 Next Steps</h3>
+        <p>If camera access works here, you can test the full validation system at:</p>
+        <p><strong>https://localhost:5001/validacion</strong></p>
+    </div>
+
+    <script>
+        let stream = null;
+        const video = document.getElementById('video');
+        const status = document.getElementById('status');
+        const videoContainer = document.getElementById('videoContainer');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+
+        function updateStatus(message, type = 'info') {
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        async function startCamera() {
+            try {
+                updateStatus('Requesting camera access...', 'info');
+                
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { 
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    } 
+                });
+                
+                video.srcObject = stream;
+                videoContainer.style.display = 'block';
+                startBtn.style.display = 'none';
+                stopBtn.style.display = 'inline-block';
+                
+                updateStatus('✅ Camera access granted! Camera is working.', 'success');
+                
+                video.onloadedmetadata = () => {
+                    console.log('Video metadata loaded:', video.videoWidth, 'x', video.videoHeight);
+                };
+                
+                video.oncanplay = () => {
+                    console.log('Video can play, camera is ready');
+                };
+                
+            } catch (error) {
+                console.error('Camera error:', error);
+                let errorMessage = '❌ Camera access failed';
+                
+                if (error.name === 'NotAllowedError') {
+                    errorMessage = '❌ Camera access denied. Please allow camera access.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage = '❌ No camera found on this device.';
+                } else if (error.name === 'NotSupportedError') {
+                    errorMessage = '❌ Camera not supported in this browser.';
+                } else {
+                    errorMessage = `❌ Camera error: ${error.message}`;
+                }
+                
+                updateStatus(errorMessage, 'error');
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            video.srcObject = null;
+            videoContainer.style.display = 'none';
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+            
+            updateStatus('Camera stopped. Click "Start Camera" to test again.', 'info');
+        }
+
+        // Check if we're on HTTPS
+        if (location.protocol === 'https:') {
+            updateStatus('✅ HTTPS detected - Camera access should work!', 'success');
+        } else {
+            updateStatus('⚠️ HTTP detected - Camera access may not work. Use HTTPS for camera testing.', 'error');
+        }
+    </script>
+</body>
+</html> 

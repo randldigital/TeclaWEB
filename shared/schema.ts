@@ -50,7 +50,8 @@ export const tickets = pgTable("tickets", {
   playId: varchar("play_id").notNull().references(() => plays.id),
   qrCode: text("qr_code").notNull(),
   seatNumber: text("seat_number"),
-  status: text("status").default("ACTIVE").notNull(),
+  status: text("status").default("Pendiente").notNull(),
+  paidAt: timestamp("paid_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

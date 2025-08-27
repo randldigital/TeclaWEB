@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Calendar, User, AlertCircle } from "lucide-react";
 import { Post } from "@shared/schema";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { formatDate } from "@/utils/date-utils";
 
 export default function PostDetail() {
   const { id } = useParams();
@@ -105,7 +104,7 @@ export default function PostDetail() {
                 </Badge>
                 <span className="text-gray-500 text-sm flex items-center">
                   <Calendar className="w-4 h-4 mr-1" />
-                  {format(new Date(post.createdAt), "d 'de' MMMM 'de' yyyy", { locale: es })}
+                  {formatDate(post.createdAt, "d 'de' MMMM 'de' yyyy")}
                 </span>
               </div>
               

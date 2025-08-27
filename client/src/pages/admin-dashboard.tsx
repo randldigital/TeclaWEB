@@ -23,8 +23,7 @@ import {
 } from "lucide-react";
 import { Post, Play, User, ContactMessage } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { formatDate, formatTime, parseDatabaseDate } from "@/utils/date-utils";
 import { Link, Redirect } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -192,7 +191,7 @@ export default function AdminDashboard() {
                 <CardContent>
                   <div className="text-2xl font-bold">{plays?.length || 0}</div>
                   <p className="text-xs text-muted-foreground">
-                    {plays?.filter(p => new Date(p.dateTime) > new Date()).length || 0} próximas
+                    {plays?.filter(p => parseDatabaseDate(p.dateTime) > new Date()).length || 0} próximas
                   </p>
                 </CardContent>
               </Card>
@@ -294,7 +293,7 @@ export default function AdminDashboard() {
                               {getStatusText(post.status)}
                             </Badge>
                             <span className="text-sm text-gray-500">
-                              {format(new Date(post.createdAt), "d MMM yyyy", { locale: es })}
+                              {formatDate(post.createdAt, "d MMM yyyy")}
                             </span>
                           </div>
                           <h3 className="text-lg font-semibold text-gray-900 mb-1">
@@ -382,7 +381,7 @@ export default function AdminDashboard() {
                             )}
                             <span className="text-sm text-gray-500 flex items-center">
                               <Calendar className="w-4 h-4 mr-1" />
-                              {format(new Date(play.dateTime), "d MMM yyyy - HH:mm'h'", { locale: es })}
+                              {formatDate(play.dateTime, "d MMM yyyy - HH:mm'h'")}
                             </span>
                           </div>
                           <h3 className="text-lg font-semibold text-gray-900 mb-1">
@@ -470,7 +469,7 @@ export default function AdminDashboard() {
                               {message.status === "UNREAD" ? "Sin leer" : "Leído"}
                             </Badge>
                             <p className="text-sm text-gray-500 mt-1">
-                              {format(new Date(message.createdAt), "d MMM yyyy - HH:mm", { locale: es })}
+                              {formatDate(message.createdAt, "d MMM yyyy - HH:mm")}
                             </p>
                           </div>
                         </div>

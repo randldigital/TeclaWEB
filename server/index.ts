@@ -1,6 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import https from 'https';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
 app.use(express.json());
@@ -61,11 +65,54 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
+  
+  // Start HTTP server
   server.listen({
     port,
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    log(`🌐 HTTP server serving on port ${port}`);
+    log(`📱 Validation page: http://localhost:${port}/validacion (manual testing)`);
   });
+
+  // Start HTTPS server for camera access (development only)
+  if (app.get("env") === "development") {
+    try {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      const certPath = path.join(__dirname, '..', 'certs', 'localhost.pem');
+      const keyPath = path.join(__dirname, '..', 'certs', 'localhost-key.pem');
+      
+      if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+        const httpsOptions = {
+          cert: fs.readFileSync(certPath),
+          key: fs.readFileSync(keyPath)
+        };
+        
+        // Create a separate HTTPS app instance
+        const httpsApp = express();
+        httpsApp.use(express.json());
+        httpsApp.use(express.urlencoded({ extended: false }));
+        
+        // Register routes for HTTPS
+        const httpsServer = await registerRoutes(httpsApp);
+        
+        const httpsServerInstance = https.createServer(httpsOptions, httpsApp);
+        
+        // Setup Vite for HTTPS with proper HMR configuration
+        await setupVite(httpsApp, httpsServerInstance);
+        
+        httpsServerInstance.listen(5001, () => {
+          log(`🔒 HTTPS server serving on port 5001`);
+          log(`📱 Camera validation page: https://localhost:5001/validacion`);
+        });
+      } else {
+        log(`⚠️  HTTPS certificates not found. Camera access will not work.`);
+        log(`💡 Run: mkcert -key-file certs/localhost-key.pem -cert-file certs/localhost.pem localhost 127.0.0.1 ::1`);
+      }
+    } catch (error) {
+      log(`⚠️  HTTPS setup failed: ${error}`);
+    }
+  }
 })();

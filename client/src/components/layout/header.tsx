@@ -16,23 +16,10 @@ export function Header() {
 
   const navigation = [
     { name: "Inicio", href: "/" },
-    { name: "Obras", href: "#events" },
-    { name: "Galería", href: "#gallery" },
-    { name: "Contacto", href: "#contact" },
+    { name: "Obras", href: "/obras" },
+    { name: "Galería", href: "/galeria" },
+    { name: "Contacto", href: "/contacto" },
   ];
-
-  const scrollToSection = (sectionId: string) => {
-    if (location !== "/") {
-      window.location.href = `/${sectionId}`;
-      return;
-    }
-    
-    const element = document.querySelector(sectionId);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth" });
-    }
-    setIsMobileMenuOpen(false);
-  };
 
   const handleLogout = () => {
     logoutMutation.mutate();
@@ -57,20 +44,16 @@ export function Header() {
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
               {navigation.map((item) => (
-                <button
+                <Link
                   key={item.name}
-                  onClick={() => item.href.startsWith("#") ? scrollToSection(item.href) : null}
+                  href={item.href}
                   className={`${
-                    (item.href === "/" && location === "/") ? "text-claret-blue font-medium" : "text-gray-700"
+                    location === item.href ? "text-claret-blue font-medium" : "text-gray-700"
                   } hover:text-claret-blue transition-colors`}
                   data-testid={`link-nav-${item.name.toLowerCase()}`}
                 >
-                  {item.href.startsWith("#") ? (
-                    <span>{item.name}</span>
-                  ) : (
-                    <Link href={item.href}>{item.name}</Link>
-                  )}
-                </button>
+                  {item.name}
+                </Link>
               ))}
             </div>
 
@@ -89,9 +72,11 @@ export function Header() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem>
-                      <User className="w-4 h-4 mr-2" />
-                      <span>Perfil</span>
+                    <DropdownMenuItem asChild>
+                      <Link href="/perfil">
+                        <User className="w-4 h-4 mr-2" />
+                        <span>Perfil</span>
+                      </Link>
                     </DropdownMenuItem>
                     {(user.role === "ADMIN" || user.role === "MONITOR") && (
                       <DropdownMenuItem asChild>
@@ -127,18 +112,15 @@ export function Header() {
                 <SheetContent side="right" className="w-64">
                   <div className="flex flex-col space-y-4 mt-8">
                     {navigation.map((item) => (
-                      <button
+                      <Link
                         key={item.name}
-                        onClick={() => item.href.startsWith("#") ? scrollToSection(item.href) : setIsMobileMenuOpen(false)}
+                        href={item.href}
+                        onClick={() => setIsMobileMenuOpen(false)}
                         className="text-left text-gray-700 hover:text-claret-blue transition-colors py-2"
                         data-testid={`link-mobile-nav-${item.name.toLowerCase()}`}
                       >
-                        {item.href.startsWith("#") ? (
-                          <span>{item.name}</span>
-                        ) : (
-                          <Link href={item.href}>{item.name}</Link>
-                        )}
-                      </button>
+                        {item.name}
+                      </Link>
                     ))}
                   </div>
                 </SheetContent>

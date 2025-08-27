@@ -3,8 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, Euro, Theater } from "lucide-react";
 import { Play } from "@shared/schema";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { formatDate, formatTime } from "@/utils/date-utils";
 
 interface EventCardProps {
   play: Play;
@@ -46,7 +45,7 @@ export function EventCard({ play }: EventCardProps) {
       )}
       <div className="p-6">
         <div className="flex items-center justify-between mb-3">
-          <Badge className={getGenreColor(play.genre)}>
+          <Badge className={getGenreColor(play.genre || undefined)}>
             {play.genre || "Teatro"}
           </Badge>
           <span className="text-claret-red font-semibold flex items-center">
@@ -65,11 +64,11 @@ export function EventCard({ play }: EventCardProps) {
         <div className="flex items-center space-x-4 text-sm text-gray-500 mb-4">
           <span className="flex items-center space-x-1">
             <Calendar className="w-4 h-4" />
-            <span>{format(new Date(play.dateTime), "d MMM", { locale: es })}</span>
+            <span>{formatDate(play.dateTime, "d MMM")}</span>
           </span>
           <span className="flex items-center space-x-1">
             <Clock className="w-4 h-4" />
-            <span>{format(new Date(play.dateTime), "HH:mm'h'")}</span>
+            <span>{formatTime(play.dateTime)}</span>
           </span>
         </div>
         <Button 

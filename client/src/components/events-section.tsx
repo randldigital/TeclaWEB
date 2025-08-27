@@ -4,8 +4,8 @@ import { EventCard } from "@/components/event-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Star, Calendar, Clock, Euro } from "lucide-react";
 import { Play } from "@shared/schema";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { formatDate, formatTime } from "@/utils/date-utils";
+import { Link } from "wouter";
 
 export function EventsSection() {
   const { data: plays, isLoading, error } = useQuery<Play[]>({
@@ -96,11 +96,11 @@ export function EventsSection() {
                     <div className="flex flex-wrap gap-4 mb-6">
                       <div className="flex items-center space-x-2">
                         <Calendar className="w-5 h-5 text-claret-yellow" />
-                        <span>{format(new Date(featuredPlay.dateTime), "d MMMM yyyy", { locale: es })}</span>
+                        <span>{formatDate(featuredPlay.dateTime)}</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Clock className="w-5 h-5 text-claret-yellow" />
-                        <span>{format(new Date(featuredPlay.dateTime), "HH:mm'h'")}</span>
+                        <span>{formatTime(featuredPlay.dateTime)}</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Euro className="w-5 h-5 text-claret-yellow" />
@@ -109,9 +109,12 @@ export function EventsSection() {
                     </div>
                     <Button 
                       className="bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy px-8 py-3 rounded-lg font-semibold transition-all transform hover:scale-105"
+                      asChild
                       data-testid="button-reserve-featured-tickets"
                     >
-                      Reservar Entradas
+                      <Link href={`/events/${featuredPlay.id}`}>
+                        Reservar Entradas
+                      </Link>
                     </Button>
                   </div>
                   <div className="relative">

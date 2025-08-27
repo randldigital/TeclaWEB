@@ -3,8 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight } from "lucide-react";
 import { Post } from "@shared/schema";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { formatDate } from "@/utils/date-utils";
 
 interface PostCardProps {
   post: Post;
@@ -55,7 +54,7 @@ export function PostCard({ post }: PostCardProps) {
             {getStatusText(post.status)}
           </Badge>
           <span className="text-gray-500 text-sm">
-            {format(new Date(post.createdAt), "d MMM yyyy", { locale: es })}
+            {formatDate(post.createdAt, "d MMM yyyy")}
           </span>
         </div>
         <h4 className="text-xl font-semibold text-claret-blue mb-3 hover:text-claret-navy">

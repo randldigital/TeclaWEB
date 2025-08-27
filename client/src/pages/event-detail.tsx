@@ -7,10 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Calendar, Clock, Euro, MapPin, Users, Theater, AlertCircle, Ticket } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Euro, MapPin, Users, Theater, AlertCircle, Ticket, Download, CheckCircle } from "lucide-react";
 import { Play } from "@shared/schema";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { formatDate, formatTime, parseDatabaseDate } from "@/utils/date-utils";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +19,7 @@ export default function EventDetail() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isReserving, setIsReserving] = useState(false);
+  const [createdTicket, setCreatedTicket] = useState<any>(null);
   
   const { data: play, isLoading, error } = useQuery<Play>({
     queryKey: ["/api/plays", id],
@@ -45,7 +45,8 @@ export default function EventDetail() {
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (ticketData) => {
+      setCreatedTicket(ticketData);
       toast({
         title: "¡Entrada reservada!",
         description: "Tu entrada ha sido reservada exitosamente. Recibirás un email de confirmación.",
@@ -60,6 +61,37 @@ export default function EventDetail() {
       });
     },
   });
+
+  const downloadTicket = async (ticketId: string, useCustomTemplate: boolean = false) => {
+    try {
+      const method = useCustomTemplate ? 'POST' : 'GET';
+      const response = await fetch(`/api/tickets/${ticketId}/pdf`, {
+        method,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ticket-${ticketId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading PDF:', error);
+      toast({
+        title: "Error al descargar",
+        description: "No se pudo descargar la entrada. Inténtalo de nuevo.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleReserveTicket = () => {
     if (!user) {
@@ -93,7 +125,7 @@ export default function EventDetail() {
     }
   };
 
-  const isEventPassed = play ? new Date(play.dateTime) < new Date() : false;
+  const isEventPassed = play ? parseDatabaseDate(play.dateTime) < new Date() : false;
 
   return (
     <div className="min-h-screen bg-white">
@@ -142,7 +174,7 @@ export default function EventDetail() {
             <div className="space-y-6">
               <div>
                 <div className="flex items-center space-x-2 mb-4">
-                  <Badge className={getGenreColor(play.genre)}>
+                  <Badge className={getGenreColor(play.genre || undefined)}>
                     {play.genre || "Teatro"}
                   </Badge>
                   {isEventPassed && (
@@ -173,7 +205,7 @@ export default function EventDetail() {
                     <div>
                       <p className="font-medium">Fecha</p>
                       <p className="text-gray-600">
-                        {format(new Date(play.dateTime), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })}
+                        {formatDate(play.dateTime, "EEEE, d 'de' MMMM 'de' yyyy")}
                       </p>
                     </div>
                   </div>
@@ -183,7 +215,7 @@ export default function EventDetail() {
                     <div>
                       <p className="font-medium">Hora</p>
                       <p className="text-gray-600">
-                        {format(new Date(play.dateTime), "HH:mm'h'")}
+                        {formatTime(play.dateTime)}
                       </p>
                     </div>
                   </div>
@@ -248,6 +280,68 @@ export default function EventDetail() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Download Ticket Section */}
+              {createdTicket && (
+                <Card className="border-green-200 bg-green-50">
+                  <CardHeader>
+                    <CardTitle className="text-green-800 flex items-center">
+                      <CheckCircle className="w-5 h-5 mr-2" />
+                      ¡Entrada Reservada!
+                    </CardTitle>
+                    <CardDescription className="text-green-700">
+                      Tu entrada ha sido reservada exitosamente. Puedes descargarla ahora mismo.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="bg-white p-4 rounded-lg border border-green-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h4 className="font-semibold text-gray-900">{play?.title}</h4>
+                          <p className="text-sm text-gray-600">
+                            {play?.dateTime ? formatDate(play.dateTime, "d 'de' MMMM 'de' yyyy 'a las' HH:mm") : "Fecha no disponible"}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="text-xs">
+                          {createdTicket.status}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-gray-500 mb-3">
+                        ID: {createdTicket.id}
+                      </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        onClick={() => downloadTicket(createdTicket.id, false)}
+                        className="bg-claret-blue hover:bg-claret-navy text-white"
+                        size="sm"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Descargar Original
+                      </Button>
+                      <Button
+                        onClick={() => downloadTicket(createdTicket.id, true)}
+                        className="bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy"
+                        size="sm"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Descargar Personalizada
+                      </Button>
+                    </div>
+                    
+                    <div className="text-xs text-green-700 bg-green-100 p-3 rounded-lg">
+                      <p className="font-medium mb-1">Información importante:</p>
+                      <ul className="space-y-1">
+                        <li>• Guarda la entrada en tu dispositivo</li>
+                        <li>• Presenta la entrada impresa o el código QR en la entrada</li>
+                        <li>• Llega 15 minutos antes del inicio</li>
+                        <li>• También puedes descargar la entrada desde tu perfil</li>
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
             
             {/* Event Poster */}
