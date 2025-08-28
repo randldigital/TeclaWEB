@@ -1,0 +1,78 @@
+nohup: ignoring input
+
+> rest-express@1.0.0 start
+> NODE_ENV=production node dist/server/index.js
+
+12:53:38 PM [express] 🌐 HTTP server serving on port 5000
+12:53:38 PM [express] 📱 Validation page: http://localhost:5000/validacion (manual testing)
+Browser initialized successfully
+12:53:49 PM [express] GET /api/plays 200 in 9ms :: [{"id":"5uB-_Pwza70Qceit84CwU","title":"obrakool",…
+12:54:11 PM [express] PUT /api/plays/5uB-_Pwza70Qceit84CwU 401 in 3ms :: {"message":"Authentication r…
+12:55:08 PM [express] POST /api/auth/login 200 in 13ms
+12:56:09 PM [express] GET /api/user 401 in 3ms
+12:56:17 PM [express] POST /api/login 200 in 59ms :: {"id":"R0QCCEGCCecYX83Vjn2oS","email":"admin@tec…
+12:56:17 PM [express] GET /api/posts 304 in 4ms :: [{"id":"nsjYhJAEqL1A0xn1TPve8","title":"test3","co…
+12:56:20 PM [express] GET /api/plays 200 in 5ms :: [{"id":"5uB-_Pwza70Qceit84CwU","title":"obrakool",…
+12:56:23 PM [express] GET /api/contact 304 in 4ms :: [{"id":"vooFFLtuh8Z2TnzdudP7t","name":"Test User…
+12:56:37 PM [express] PUT /api/plays/5uB-_Pwza70Qceit84CwU 200 in 26ms :: {"id":"5uB-_Pwza70Qceit84Cw…
+12:56:37 PM [express] GET /api/plays 200 in 4ms :: [{"id":"5uB-_Pwza70Qceit84CwU","title":"obrakool",…
+12:56:42 PM [express] GET /api/plays/5uB-_Pwza70Qceit84CwU 200 in 2ms :: {"id":"5uB-_Pwza70Qceit84CwU…
+Failed to send email: Error: connect ECONNREFUSED 127.0.0.1:587
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1549:16) {
+  errno: -111,
+  code: 'ESOCKET',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 587,
+  command: 'CONN'
+}
+12:56:43 PM [express] POST /api/tickets 201 in 93ms :: {"id":"TICKET-1756385803621-airr99mbx","userId…
+QR Code data URL length: 1726
+QR Code data URL starts with: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgA...
+Image status after loading: [
+  {
+    index: 0,
+    complete: true,
+    naturalWidth: 200,
+    naturalHeight: 200,
+    src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgA...'
+  }
+]
+12:56:48 PM [express] GET /api/tickets/TICKET-1756385803621-airr99mbx/pdf 200 in 3221ms
+12:56:58 PM [express] GET /api/user 304 in 2ms :: {"id":"R0QCCEGCCecYX83Vjn2oS","email":"admin@teclaw…
+12:57:02 PM [express] POST /api/validation/weekly-code 200 in 2ms :: {"message":"Código válido","vali…
+12:57:29 PM [express] POST /api/validation/ticket/TICKET-1756385803621-airr99mbx 200 in 3ms :: {"id":…
+12:57:32 PM [express] POST /api/validation/confirm-payment/TICKET-1756385803621-airr99mbx 200 in 55ms…
+12:57:37 PM [express] GET /api/tickets 200 in 8ms :: [{"id":"TICKET-1756385803621-airr99mbx","userId"…
+Error deleting play: SqliteError: FOREIGN KEY constraint failed
+    at DatabaseStorage.deletePlay (file:///home/dev/workspace2/TeclaWEB/dist/server/storage-db.js:227:73)
+    at file:///home/dev/workspace2/TeclaWEB/dist/server/routes.js:148:43
+    at Layer.handle [as handle_request] (/home/dev/workspace2/TeclaWEB/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/dev/workspace2/TeclaWEB/node_modules/express/lib/router/route.js:149:13)
+    at file:///home/dev/workspace2/TeclaWEB/dist/server/auth.js:157:9
+    at Layer.handle [as handle_request] (/home/dev/workspace2/TeclaWEB/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/dev/workspace2/TeclaWEB/node_modules/express/lib/router/route.js:149:13)
+    at requireAuth (file:///home/dev/workspace2/TeclaWEB/dist/server/auth.js:147:5)
+    at Layer.handle [as handle_request] (/home/dev/workspace2/TeclaWEB/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/dev/workspace2/TeclaWEB/node_modules/express/lib/router/route.js:149:13) {
+  code: 'SQLITE_CONSTRAINT_FOREIGNKEY'
+}
+12:58:04 PM [express] DELETE /api/plays/HP-7TkvK0l2u1B-x4m53H 500 in 5ms :: {"message":"Error deletin…
+Error deleting play: SqliteError: FOREIGN KEY constraint failed
+    at DatabaseStorage.deletePlay (file:///home/dev/workspace2/TeclaWEB/dist/server/storage-db.js:227:73)
+    at file:///home/dev/workspace2/TeclaWEB/dist/server/routes.js:148:43
+    at Layer.handle [as handle_request] (/home/dev/workspace2/TeclaWEB/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/dev/workspace2/TeclaWEB/node_modules/express/lib/router/route.js:149:13)
+    at file:///home/dev/workspace2/TeclaWEB/dist/server/auth.js:157:9
+    at Layer.handle [as handle_request] (/home/dev/workspace2/TeclaWEB/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/dev/workspace2/TeclaWEB/node_modules/express/lib/router/route.js:149:13)
+    at requireAuth (file:///home/dev/workspace2/TeclaWEB/dist/server/auth.js:147:5)
+    at Layer.handle [as handle_request] (/home/dev/workspace2/TeclaWEB/node_modules/express/lib/router/layer.js:95:5)
+    at next (/home/dev/workspace2/TeclaWEB/node_modules/express/lib/router/route.js:149:13) {
+  code: 'SQLITE_CONSTRAINT_FOREIGNKEY'
+}
+12:58:06 PM [express] DELETE /api/plays/LFnp1AxZdEg1rzAykB7HH 500 in 5ms :: {"message":"Error deletin…
+12:58:08 PM [express] DELETE /api/plays/kk635iesYu-_f8x75hPAz 204 in 32ms
+12:58:08 PM [express] GET /api/plays 200 in 5ms :: [{"id":"5uB-_Pwza70Qceit84CwU","title":"obrakool",…
+12:58:17 PM [express] GET /api/posts/nsjYhJAEqL1A0xn1TPve8 200 in 3ms :: {"id":"nsjYhJAEqL1A0xn1TPve8…
+Browser disconnected, will reinitialize on next request
