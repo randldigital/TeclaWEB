@@ -5,12 +5,12 @@ import { es } from "date-fns/locale";
  * Safely parse a date string from the database
  * The database returns dates in format: '2025-03-15 20:00:00'
  */
-export function parseDatabaseDate(dateString: string | Date): Date {
+export function parseDatabaseDate(dateString: string | Date | null | undefined): Date {
   if (dateString instanceof Date) {
     return dateString;
   }
   
-  if (!dateString) {
+  if (!dateString || dateString === 'null' || dateString === 'undefined') {
     throw new Error("Invalid date string");
   }
   

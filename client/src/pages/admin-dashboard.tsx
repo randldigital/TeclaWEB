@@ -27,11 +27,21 @@ import { formatDate, formatTime, parseDatabaseDate } from "@/utils/date-utils";
 import { Link, Redirect } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { CreatePostForm } from "@/components/create-post-form";
+import { CreatePlayForm } from "@/components/create-play-form";
+import { EditPlayForm } from "@/components/edit-play-form";
+import { EditPostForm } from "@/components/edit-post-form";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("overview");
+  const [showCreatePostForm, setShowCreatePostForm] = useState(false);
+  const [showCreatePlayForm, setShowCreatePlayForm] = useState(false);
+  const [showEditPlayForm, setShowEditPlayForm] = useState(false);
+  const [showEditPostForm, setShowEditPostForm] = useState(false);
+  const [selectedPlay, setSelectedPlay] = useState<Play | null>(null);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
   // Redirect if not authorized
   if (!user || (user.role !== "ADMIN" && user.role !== "MONITOR")) {
@@ -44,7 +54,9 @@ export default function AdminDashboard() {
   const { data: posts, isLoading: postsLoading } = useQuery<Post[]>({
     queryKey: ["/api/posts"],
     queryFn: async () => {
-      const response = await fetch("/api/posts");
+      const response = await fetch("/api/posts", {
+        credentials: "include"
+      });
       return response.json();
     },
   });
@@ -52,7 +64,9 @@ export default function AdminDashboard() {
   const { data: plays, isLoading: playsLoading } = useQuery<Play[]>({
     queryKey: ["/api/plays"],
     queryFn: async () => {
-      const response = await fetch("/api/plays");
+      const response = await fetch("/api/plays", {
+        credentials: "include"
+      });
       return response.json();
     },
   });
@@ -60,7 +74,9 @@ export default function AdminDashboard() {
   const { data: contactMessages, isLoading: messagesLoading } = useQuery<ContactMessage[]>({
     queryKey: ["/api/contact"],
     queryFn: async () => {
-      const response = await fetch("/api/contact");
+      const response = await fetch("/api/contact", {
+        credentials: "include"
+      });
       return response.json();
     },
     enabled: isAdmin,
@@ -101,6 +117,26 @@ export default function AdminDashboard() {
     onError: (error: Error) => {
       toast({
         title: "Error al eliminar",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMessageStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      await apiRequest("PUT", `/api/contact/${id}/status`, { status });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Estado actualizado",
+        description: "El estado del mensaje ha sido actualizado.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/contact"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error al actualizar",
         description: error.message,
         variant: "destructive",
       });
@@ -191,7 +227,14 @@ export default function AdminDashboard() {
                 <CardContent>
                   <div className="text-2xl font-bold">{plays?.length || 0}</div>
                   <p className="text-xs text-muted-foreground">
-                    {plays?.filter(p => parseDatabaseDate(p.dateTime) > new Date()).length || 0} próximas
+                    {plays?.filter(p => {
+                      try {
+                        return p.dateTime && parseDatabaseDate(p.dateTime) > new Date();
+                      } catch (error) {
+                        console.warn('Invalid date for play:', p.id, p.dateTime);
+                        return false;
+                      }
+                    }).length || 0} próximas
                   </p>
                 </CardContent>
               </Card>
@@ -233,16 +276,33 @@ export default function AdminDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-wrap gap-4">
-                <Button className="bg-claret-blue hover:bg-claret-navy" data-testid="button-new-post">
+                <Button 
+                  className="bg-claret-blue hover:bg-claret-navy" 
+                  data-testid="button-new-post"
+                  onClick={() => setShowCreatePostForm(true)}
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Nuevo Post
                 </Button>
-                <Button className="bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy" data-testid="button-new-play">
+                <Button 
+                  className="bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy" 
+                  data-testid="button-new-play"
+                  onClick={() => setShowCreatePlayForm(true)}
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Nueva Obra
                 </Button>
                 {isAdmin && (
-                  <Button variant="outline" data-testid="button-settings">
+                  <Button 
+                    variant="outline" 
+                    data-testid="button-settings"
+                    onClick={() => {
+                      toast({
+                        title: "Configuración",
+                        description: "La funcionalidad de configuración estará disponible próximamente.",
+                      });
+                    }}
+                  >
                     <Settings className="w-4 h-4 mr-2" />
                     Configuración
                   </Button>
@@ -255,7 +315,11 @@ export default function AdminDashboard() {
           <TabsContent value="posts" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-claret-blue">Gestión de Posts</h2>
-              <Button className="bg-claret-blue hover:bg-claret-navy" data-testid="button-create-post">
+              <Button 
+                className="bg-claret-blue hover:bg-claret-navy" 
+                data-testid="button-create-post"
+                onClick={() => setShowCreatePostForm(true)}
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Nuevo Post
               </Button>
@@ -311,7 +375,15 @@ export default function AdminDashboard() {
                               <Eye className="w-4 h-4" />
                             </Link>
                           </Button>
-                          <Button variant="outline" size="sm" data-testid={`button-edit-post-${post.id}`}>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            data-testid={`button-edit-post-${post.id}`}
+                            onClick={() => {
+                              setSelectedPost(post);
+                              setShowEditPostForm(true);
+                            }}
+                          >
                             <Edit className="w-4 h-4" />
                           </Button>
                           <Button 
@@ -342,7 +414,11 @@ export default function AdminDashboard() {
           <TabsContent value="plays" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-claret-blue">Gestión de Obras</h2>
-              <Button className="bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy" data-testid="button-create-play">
+              <Button 
+                className="bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy" 
+                data-testid="button-create-play"
+                onClick={() => setShowCreatePlayForm(true)}
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Nueva Obra
               </Button>
@@ -400,7 +476,15 @@ export default function AdminDashboard() {
                               <Eye className="w-4 h-4" />
                             </Link>
                           </Button>
-                          <Button variant="outline" size="sm" data-testid={`button-edit-play-${play.id}`}>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            data-testid={`button-edit-play-${play.id}`}
+                            onClick={() => {
+                              setSelectedPlay(play);
+                              setShowEditPlayForm(true);
+                            }}
+                          >
                             <Edit className="w-4 h-4" />
                           </Button>
                           <Button 
@@ -480,11 +564,30 @@ export default function AdminDashboard() {
                           <p className="text-gray-700">{message.message}</p>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <Button variant="outline" size="sm" data-testid={`button-reply-message-${message.id}`}>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            data-testid={`button-reply-message-${message.id}`}
+                            onClick={() => {
+                              toast({
+                                title: "Responder mensaje",
+                                description: `Funcionalidad de respuesta para: ${message.email}`,
+                              });
+                            }}
+                          >
                             <Mail className="w-4 h-4 mr-2" />
                             Responder
                           </Button>
-                          <Button variant="outline" size="sm" data-testid={`button-mark-read-${message.id}`}>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            data-testid={`button-mark-read-${message.id}`}
+                            onClick={() => {
+                              const newStatus = message.status === "UNREAD" ? "READ" : "UNREAD";
+                              updateMessageStatusMutation.mutate({ id: message.id, status: newStatus });
+                            }}
+                            disabled={updateMessageStatusMutation.isPending}
+                          >
                             {message.status === "UNREAD" ? (
                               <>
                                 <Eye className="w-4 h-4 mr-2" />
@@ -513,6 +616,32 @@ export default function AdminDashboard() {
           )}
         </Tabs>
       </main>
+      
+      {/* Forms */}
+      <CreatePostForm 
+        isOpen={showCreatePostForm} 
+        onClose={() => setShowCreatePostForm(false)} 
+      />
+      <CreatePlayForm 
+        isOpen={showCreatePlayForm} 
+        onClose={() => setShowCreatePlayForm(false)} 
+      />
+      <EditPlayForm 
+        isOpen={showEditPlayForm} 
+        onClose={() => {
+          setShowEditPlayForm(false);
+          setSelectedPlay(null);
+        }}
+        play={selectedPlay}
+      />
+      <EditPostForm 
+        isOpen={showEditPostForm} 
+        onClose={() => {
+          setShowEditPostForm(false);
+          setSelectedPost(null);
+        }}
+        post={selectedPost}
+      />
       
       <Footer />
     </div>

@@ -138,10 +138,22 @@ export const insertPostSchema = createInsertSchema(posts).omit({
   updatedAt: true,
 });
 
-export const insertPlaySchema = createInsertSchema(plays).omit({
+const baseInsertPlaySchema = createInsertSchema(plays).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+});
+
+export const insertPlaySchema = baseInsertPlaySchema.extend({
+  dateTime: z.union([z.date(), z.string()]).transform((val) => 
+    val instanceof Date ? val : new Date(val)
+  )
+});
+
+export const updatePlaySchema = baseInsertPlaySchema.partial().extend({
+  dateTime: z.union([z.date(), z.string()]).transform((val) => 
+    val instanceof Date ? val : new Date(val)
+  ).optional()
 });
 
 export const insertTicketSchema = createInsertSchema(tickets).omit({

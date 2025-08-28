@@ -10,8 +10,8 @@ import {
   type GalleryItem, type InsertGalleryItem, type ContactMessage, type InsertContactMessage
 } from "@shared/schema";
 
-// Simple memory store for sessions
-class SimpleMemoryStore extends session.Store {
+// Memory-based session store for simplicity
+class MemorySessionStore extends session.Store {
   private sessions: Map<string, any> = new Map();
 
   get(sid: string, callback: (err: any, session?: any) => void): void {
@@ -88,7 +88,7 @@ export class DatabaseStorage implements IStorage {
   sessionStore: session.Store;
 
   constructor() {
-    this.sessionStore = new SimpleMemoryStore();
+    this.sessionStore = new MemorySessionStore();
   }
 
   // User methods
@@ -145,17 +145,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined> {
-    const updateData = { ...updates, updatedAt: new Date() };
-    const setClause = Object.keys(updateData).map(key => `${key} = ?`).join(', ');
+    const updateData = { ...updates };
+    const setClause = Object.keys(updateData).map(key => {
+      // Convert camelCase to snake_case for database columns
+      const dbColumn = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+      return `${dbColumn} = ?`;
+    }).join(', ');
     const values = Object.values(updateData);
     
-    sqlite.prepare(`UPDATE users SET ${setClause} WHERE id = ?`).run(...values, id);
+    // Add updated_at timestamp
+    const finalSetClause = setClause ? `${setClause}, updated_at = ?` : 'updated_at = ?';
+    const finalValues = setClause ? [...values, new Date().toISOString()] : [new Date().toISOString()];
+    
+    sqlite.prepare(`UPDATE users SET ${finalSetClause} WHERE id = ?`).run(...finalValues, id);
     return this.getUser(id);
   }
 
   // Post methods
   async getPosts(limit: number = 50, status?: string): Promise<Post[]> {
-    let query = 'SELECT * FROM posts ORDER BY created_at DESC';
+    let query = 'SELECT * FROM posts';
     const params: any[] = [];
     
     if (status) {
@@ -163,7 +171,7 @@ export class DatabaseStorage implements IStorage {
       params.push(status);
     }
     
-    query += ' LIMIT ?';
+    query += ' ORDER BY created_at DESC LIMIT ?';
     params.push(limit);
     
     return sqlite.prepare(query).all(...params) as Post[];
@@ -196,11 +204,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePost(id: string, updates: Partial<InsertPost>): Promise<Post | undefined> {
-    const updateData = { ...updates, updatedAt: new Date() };
-    const setClause = Object.keys(updateData).map(key => `${key} = ?`).join(', ');
+    const updateData = { ...updates };
+    const setClause = Object.keys(updateData).map(key => {
+      // Convert camelCase to snake_case for database columns
+      const dbColumn = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+      return `${dbColumn} = ?`;
+    }).join(', ');
     const values = Object.values(updateData);
     
-    sqlite.prepare(`UPDATE posts SET ${setClause} WHERE id = ?`).run(...values, id);
+    // Add updated_at timestamp
+    const finalSetClause = setClause ? `${setClause}, updated_at = ?` : 'updated_at = ?';
+    const finalValues = setClause ? [...values, new Date().toISOString()] : [new Date().toISOString()];
+    
+    sqlite.prepare(`UPDATE posts SET ${finalSetClause} WHERE id = ?`).run(...finalValues, id);
     return this.getPost(id);
   }
 
@@ -211,7 +227,19 @@ export class DatabaseStorage implements IStorage {
 
   // Play methods
   async getPlays(limit: number = 50): Promise<Play[]> {
-    return sqlite.prepare('SELECT * FROM plays ORDER BY date_time DESC LIMIT ?').all(limit) as Play[];
+    const results = sqlite.prepare('SELECT * FROM plays ORDER BY date_time DESC LIMIT ?').all(limit) as any[];
+    return results.map(result => ({
+      id: result.id,
+      title: result.title,
+      description: result.description,
+      posterUrl: result.poster_url,
+      dateTime: new Date(result.date_time),
+      basePrice: result.base_price,
+      genre: result.genre,
+      createdBy: result.created_by,
+      createdAt: new Date(result.created_at),
+      updatedAt: new Date(result.updated_at),
+    }));
   }
 
   async getPlay(id: string): Promise<Play | undefined> {
@@ -255,11 +283,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePlay(id: string, updates: Partial<InsertPlay>): Promise<Play | undefined> {
-    const updateData = { ...updates, updatedAt: new Date() };
-    const setClause = Object.keys(updateData).map(key => `${key} = ?`).join(', ');
-    const values = Object.values(updateData);
+    const updateData = { ...updates };
     
-    sqlite.prepare(`UPDATE plays SET ${setClause} WHERE id = ?`).run(...values, id);
+    // Convert Date objects to ISO strings for SQLite
+    const processedData: any = {};
+    Object.entries(updateData).forEach(([key, value]) => {
+      if (value instanceof Date) {
+        processedData[key] = value.toISOString();
+      } else {
+        processedData[key] = value;
+      }
+    });
+    
+    const setClause = Object.keys(processedData).map(key => {
+      // Convert camelCase to snake_case for database columns
+      const dbColumn = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+      return `${dbColumn} = ?`;
+    }).join(', ');
+    const values = Object.values(processedData);
+    
+    // Add updated_at timestamp
+    const finalSetClause = setClause ? `${setClause}, updated_at = ?` : 'updated_at = ?';
+    const finalValues = setClause ? [...values, new Date().toISOString()] : [new Date().toISOString()];
+    
+    sqlite.prepare(`UPDATE plays SET ${finalSetClause} WHERE id = ?`).run(...finalValues, id);
     return this.getPlay(id);
   }
 

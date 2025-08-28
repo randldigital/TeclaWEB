@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, requireAuth, requireRole } from "./auth";
 import { 
-  insertPostSchema, insertPlaySchema, insertTicketSchema, 
+  insertPostSchema, insertPlaySchema, updatePlaySchema, insertTicketSchema, 
   insertGalleryItemSchema, insertContactMessageSchema 
 } from "@shared/schema";
 import { z } from "zod";
@@ -137,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/plays/:id", requireAuth, requireRole(["ADMIN", "MONITOR"]), async (req, res) => {
     try {
-      const validatedData = insertPlaySchema.partial().parse(req.body);
+      const validatedData = updatePlaySchema.parse(req.body);
       const play = await storage.updatePlay(req.params.id, validatedData);
       if (!play) {
         return res.status(404).json({ message: "Play not found" });

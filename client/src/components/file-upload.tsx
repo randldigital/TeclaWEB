@@ -44,7 +44,7 @@ export function FileUpload({
     }
   };
 
-  const getAcceptedTypes = () => {
+  const getAcceptedTypes = (): any => {
     switch (accept) {
       case 'image':
         return {
