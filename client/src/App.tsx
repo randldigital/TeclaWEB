@@ -17,7 +17,7 @@ import EventDetail from "@/pages/event-detail";
 import PostDetail from "@/pages/post-detail";
 import ValidacionPage from "@/pages/validacion";
 import QrValidatorPage from "@/pages/qr-validator";
-import BlogPage from "@/pages/blog-page";
+
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -25,7 +25,7 @@ function Router() {
     <Switch>
       <Route path="/" component={HomePage} />
       <Route path="/obras" component={ObrasPage} />
-      <Route path="/blog" component={BlogPage} />
+
       <Route path="/galeria" component={GaleriaPage} />
       <Route path="/contacto" component={ContactoPage} />
       <ProtectedRoute path="/perfil" component={ProfilePage} />

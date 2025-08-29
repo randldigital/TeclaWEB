@@ -33,6 +33,7 @@ import { EditPostForm } from "@/components/edit-post-form";
 import { ValidationManagement } from "@/components/admin/validation-management";
 import { ValidationLogs } from "@/components/admin/validation-logs";
 import { ValidationStats } from "@/components/admin/validation-stats";
+import { ShowtimeManagement } from "@/components/admin/showtime-management";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 export default function AdminDashboard() {
@@ -43,6 +44,7 @@ export default function AdminDashboard() {
   const [showCreatePlayForm, setShowCreatePlayForm] = useState(false);
   const [showEditPlayForm, setShowEditPlayForm] = useState(false);
   const [showEditPostForm, setShowEditPostForm] = useState(false);
+  const [showShowtimeManagement, setShowShowtimeManagement] = useState(false);
   const [selectedPlay, setSelectedPlay] = useState<Play | null>(null);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
@@ -487,6 +489,9 @@ export default function AdminDashboard() {
                               <Calendar className="w-4 h-4 mr-1" />
                               {formatDate(play.dateTime, "d MMM yyyy - HH:mm'h'")}
                             </span>
+                            <Badge variant="outline" className="text-xs">
+                              Showtime Principal
+                            </Badge>
                           </div>
                           <h3 className="text-lg font-semibold text-gray-900 mb-1">
                             {play.title}
@@ -514,6 +519,18 @@ export default function AdminDashboard() {
                             }}
                           >
                             <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="bg-claret-blue hover:bg-claret-navy text-white"
+                            data-testid={`button-manage-showtimes-${play.id}`}
+                            onClick={() => {
+                              setSelectedPlay(play);
+                              setShowShowtimeManagement(true);
+                            }}
+                          >
+                            <Calendar className="w-4 h-4" />
                           </Button>
                           <Button 
                             variant="destructive" 
@@ -683,6 +700,17 @@ export default function AdminDashboard() {
         }}
         post={selectedPost}
       />
+      
+      {/* Showtime Management Modal */}
+      {showShowtimeManagement && selectedPlay && (
+        <ShowtimeManagement
+          play={selectedPlay}
+          onClose={() => {
+            setShowShowtimeManagement(false);
+            setSelectedPlay(null);
+          }}
+        />
+      )}
       
       <Footer />
     </div>

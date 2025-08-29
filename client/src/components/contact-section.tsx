@@ -90,19 +90,9 @@ export function ContactSection() {
                 <h4 className="text-lg font-semibold text-claret-blue mb-2">Ubicación</h4>
                 <p className="text-gray-600">
                   Colegio Claret Sevilla<br />
-                  C/ Marques de Nervión, 25<br />
-                  41005 Sevilla, España
+                  Av. Padre García Tejero, 8<br />
+                  41012 Sevilla, España
                 </p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-4">
-              <div className="bg-claret-yellow p-3 rounded-lg">
-                <Phone className="w-6 h-6 text-claret-navy" />
-              </div>
-              <div>
-                <h4 className="text-lg font-semibold text-claret-blue mb-2">Teléfono</h4>
-                <p className="text-gray-600">+34 954 123 456</p>
               </div>
             </div>
 
@@ -112,20 +102,7 @@ export function ContactSection() {
               </div>
               <div>
                 <h4 className="text-lg font-semibold text-claret-blue mb-2">Email</h4>
-                <p className="text-gray-600">teatro@claretsevilla.es</p>
-              </div>
-            </div>
-
-            <div className="flex items-start space-x-4">
-              <div className="bg-claret-yellow p-3 rounded-lg">
-                <Clock className="w-6 h-6 text-claret-navy" />
-              </div>
-              <div>
-                <h4 className="text-lg font-semibold text-claret-blue mb-2">Horario</h4>
-                <p className="text-gray-600">
-                  Lunes a Viernes: 9:00 - 18:00<br />
-                  Sábados: 9:00 - 14:00
-                </p>
+                <p className="text-gray-600">escuelatecla@gmail.com</p>
               </div>
             </div>
           </div>

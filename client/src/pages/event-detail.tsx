@@ -13,6 +13,7 @@ import { formatDate, formatTime, parseDatabaseDate } from "@/utils/date-utils";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { ShowtimePicker } from "@/components/showtime-picker";
 
 export default function EventDetail() {
   const { id } = useParams();
@@ -20,6 +21,7 @@ export default function EventDetail() {
   const { toast } = useToast();
   const [isReserving, setIsReserving] = useState(false);
   const [createdTicket, setCreatedTicket] = useState<any>(null);
+  const [selectedShowtime, setSelectedShowtime] = useState<Play | null>(null);
   
   const { data: play, isLoading, error } = useQuery<Play>({
     queryKey: ["/api/plays", id],
@@ -38,10 +40,10 @@ export default function EventDetail() {
 
   const reserveTicketMutation = useMutation({
     mutationFn: async () => {
-      if (!user || !play) throw new Error("Usuario no autenticado o obra no encontrada");
+      if (!user || !selectedShowtime) throw new Error("Usuario no autenticado o showtime no seleccionado");
       
       const response = await apiRequest("POST", "/api/tickets", {
-        playId: play.id,
+        playId: selectedShowtime.id,
       });
       return response.json();
     },
@@ -205,7 +207,10 @@ export default function EventDetail() {
                     <div>
                       <p className="font-medium">Fecha</p>
                       <p className="text-gray-600">
-                        {formatDate(play.dateTime, "EEEE, d 'de' MMMM 'de' yyyy")}
+                        {selectedShowtime 
+                          ? formatDate(selectedShowtime.dateTime, "EEEE, d 'de' MMMM 'de' yyyy")
+                          : "Selecciona una fecha"
+                        }
                       </p>
                     </div>
                   </div>
@@ -215,7 +220,10 @@ export default function EventDetail() {
                     <div>
                       <p className="font-medium">Hora</p>
                       <p className="text-gray-600">
-                        {formatTime(play.dateTime)}
+                        {selectedShowtime 
+                          ? formatTime(selectedShowtime.dateTime)
+                          : "Selecciona una hora"
+                        }
                       </p>
                     </div>
                   </div>
@@ -232,12 +240,34 @@ export default function EventDetail() {
                     <Euro className="w-5 h-5 text-claret-yellow" />
                     <div>
                       <p className="font-medium">Precio</p>
-                      <p className="text-2xl font-bold text-claret-red">{play.basePrice}€</p>
+                      <p className="text-2xl font-bold text-claret-red">
+                        {selectedShowtime ? `${selectedShowtime.basePrice}€` : "Selecciona una fecha"}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
+              {/* Showtime Selection */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-claret-blue flex items-center">
+                    <Calendar className="w-5 h-5 mr-2" />
+                    Seleccionar Fecha y Hora
+                  </CardTitle>
+                  <CardDescription>
+                    Elige tu showtime preferido
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ShowtimePicker
+                    playId={play.id}
+                    onShowtimeSelect={setSelectedShowtime}
+                    selectedShowtimeId={selectedShowtime?.id}
+                  />
+                </CardContent>
+              </Card>
+
               {/* Reservation Button */}
               <Card>
                 <CardHeader>
@@ -248,26 +278,30 @@ export default function EventDetail() {
                   <CardDescription>
                     {isEventPassed 
                       ? "Este evento ya ha finalizado"
-                      : user 
-                        ? "Haz clic para reservar tu entrada"
-                        : "Inicia sesión para reservar tu entrada"
+                      : !selectedShowtime
+                        ? "Selecciona una fecha y hora primero"
+                        : user 
+                          ? "Haz clic para reservar tu entrada"
+                          : "Inicia sesión para reservar tu entrada"
                     }
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Button
                     onClick={handleReserveTicket}
-                    disabled={isEventPassed || isReserving || reserveTicketMutation.isPending}
+                    disabled={isEventPassed || !selectedShowtime || isReserving || reserveTicketMutation.isPending}
                     className="w-full bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy font-semibold py-3 transition-all transform hover:scale-105 disabled:transform-none"
                     data-testid="button-reserve-ticket"
                   >
                     {isEventPassed 
                       ? "Evento Finalizado"
-                      : isReserving || reserveTicketMutation.isPending
-                        ? "Reservando..."
-                        : user
-                          ? `Reservar Entrada - ${play.basePrice}€`
-                          : "Inicia Sesión para Reservar"
+                      : !selectedShowtime
+                        ? "Selecciona una fecha y hora"
+                        : isReserving || reserveTicketMutation.isPending
+                          ? "Reservando..."
+                          : user
+                            ? `Reservar Entrada - ${selectedShowtime.basePrice}€`
+                            : "Inicia Sesión para Reservar"
                     }
                   </Button>
                   

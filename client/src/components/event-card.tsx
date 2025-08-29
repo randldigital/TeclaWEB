@@ -7,9 +7,10 @@ import { formatDate, formatTime } from "@/utils/date-utils";
 
 interface EventCardProps {
   play: Play;
+  showtimes?: Play[];
 }
 
-export function EventCard({ play }: EventCardProps) {
+export function EventCard({ play, showtimes }: EventCardProps) {
   const getGenreColor = (genre?: string) => {
     if (!genre) return "bg-claret-blue text-white";
     
@@ -50,7 +51,10 @@ export function EventCard({ play }: EventCardProps) {
           </Badge>
           <span className="text-claret-red font-semibold flex items-center">
             <Euro className="w-4 h-4 mr-1" />
-            {play.basePrice}€
+            {showtimes && showtimes.length > 1 
+              ? `Desde ${Math.min(...showtimes.map(s => s.basePrice))}€`
+              : `${play.basePrice}€`
+            }
           </span>
         </div>
         <h5 className="text-xl font-semibold text-claret-blue mb-2 hover:text-claret-navy">
@@ -64,11 +68,21 @@ export function EventCard({ play }: EventCardProps) {
         <div className="flex items-center space-x-4 text-sm text-gray-500 mb-4">
           <span className="flex items-center space-x-1">
             <Calendar className="w-4 h-4" />
-            <span>{formatDate(play.dateTime, "d MMM")}</span>
+            <span>
+              {showtimes && showtimes.length > 1 
+                ? `${showtimes.length} fechas`
+                : formatDate(play.dateTime, "d MMM")
+              }
+            </span>
           </span>
           <span className="flex items-center space-x-1">
             <Clock className="w-4 h-4" />
-            <span>{formatTime(play.dateTime)}</span>
+            <span>
+              {showtimes && showtimes.length > 1 
+                ? "Múltiples horarios"
+                : formatTime(play.dateTime)
+              }
+            </span>
           </span>
         </div>
         <Button 

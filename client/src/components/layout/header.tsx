@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Theater, Menu, LogOut, User, Settings } from "lucide-react";
+import { Menu, LogOut, User, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { LoginModal } from "@/components/login-modal";
 
@@ -17,7 +17,6 @@ export function Header() {
   const navigation = [
     { name: "Inicio", href: "/" },
     { name: "Obras", href: "/obras" },
-    { name: "Blog", href: "/blog" },
     { name: "Galería", href: "/galeria" },
     { name: "Contacto", href: "/contacto" },
   ];
@@ -32,12 +31,16 @@ export function Header() {
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <Link href="/" className="flex items-center space-x-3" data-testid="link-home">
-              <div className="w-10 h-10 bg-claret-blue rounded-lg flex items-center justify-center">
-                <Theater className="w-6 h-6 text-white" />
-              </div>
+                            <Link href="/" className="flex items-center space-x-3" data-testid="link-home">
+                  <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                    <img 
+                      src="/logo-color.png" 
+                      alt="TECLA Logo" 
+                      className="w-18 h-18"
+                    />
+                  </div>
               <div>
-                <h1 className="text-lg font-bold text-claret-blue">Teatro Claret</h1>
+                <h1 className="text-lg font-bold text-claret-blue">Escuela de Teatro TECLA</h1>
                 <p className="text-xs text-gray-600">Sevilla</p>
               </div>
             </Link>

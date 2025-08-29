@@ -7,11 +7,16 @@ import { Play } from "@shared/schema";
 import { formatDate, formatTime } from "@/utils/date-utils";
 import { Link } from "wouter";
 
+interface GroupedPlay {
+  parentPlay: Play;
+  showtimes: Play[];
+}
+
 export function EventsSection() {
-  const { data: plays, isLoading, error } = useQuery<Play[]>({
-    queryKey: ["/api/plays"],
+  const { data: groupedPlays, isLoading, error } = useQuery<GroupedPlay[]>({
+    queryKey: ["/api/plays-grouped"],
     queryFn: async () => {
-      const response = await fetch("/api/plays?limit=10");
+      const response = await fetch("/api/plays-grouped");
       if (!response.ok) {
         throw new Error("Error al cargar las obras");
       }
@@ -19,8 +24,8 @@ export function EventsSection() {
     },
   });
 
-  const featuredPlay = plays?.[0];
-  const otherPlays = plays?.slice(1, 4) || [];
+  const featuredGroup = groupedPlays?.[0];
+  const otherGroups = groupedPlays?.slice(1, 4) || [];
 
   return (
     <section className="py-16 bg-white" id="events">
@@ -78,10 +83,10 @@ export function EventsSection() {
             <h4 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar las obras</h4>
             <p className="text-gray-600">No se pudieron cargar las obras. Inténtalo de nuevo más tarde.</p>
           </div>
-        ) : plays && plays.length > 0 ? (
+        ) : groupedPlays && groupedPlays.length > 0 ? (
           <>
             {/* Featured Event */}
-            {featuredPlay && (
+            {featuredGroup && (
               <div className="bg-gradient-to-r from-claret-blue to-claret-navy rounded-2xl p-8 mb-12 text-white">
                 <div className="grid md:grid-cols-2 gap-8 items-center">
                   <div>
@@ -89,22 +94,32 @@ export function EventsSection() {
                       <Star className="w-4 h-4 mr-2" />
                       Obra Destacada
                     </div>
-                    <h4 className="text-3xl font-bold mb-4">{featuredPlay.title}</h4>
+                    <h4 className="text-3xl font-bold mb-4">{featuredGroup.parentPlay.title}</h4>
                     <p className="text-blue-100 text-lg mb-6">
-                      {featuredPlay.description}
+                      {featuredGroup.parentPlay.description}
                     </p>
                     <div className="flex flex-wrap gap-4 mb-6">
                       <div className="flex items-center space-x-2">
                         <Calendar className="w-5 h-5 text-claret-yellow" />
-                        <span>{formatDate(featuredPlay.dateTime)}</span>
+                        <span>
+                          {featuredGroup.showtimes.length > 1 
+                            ? `${featuredGroup.showtimes.length} fechas disponibles`
+                            : formatDate(featuredGroup.parentPlay.dateTime)
+                          }
+                        </span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Clock className="w-5 h-5 text-claret-yellow" />
-                        <span>{formatTime(featuredPlay.dateTime)}</span>
+                        <span>
+                          {featuredGroup.showtimes.length > 1 
+                            ? "Múltiples horarios"
+                            : formatTime(featuredGroup.parentPlay.dateTime)
+                          }
+                        </span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Euro className="w-5 h-5 text-claret-yellow" />
-                        <span>{featuredPlay.basePrice}€</span>
+                        <span>Desde {Math.min(...featuredGroup.showtimes.map(s => s.basePrice))}€</span>
                       </div>
                     </div>
                     <Button 
@@ -112,16 +127,16 @@ export function EventsSection() {
                       asChild
                       data-testid="button-reserve-featured-tickets"
                     >
-                      <Link href={`/events/${featuredPlay.id}`}>
+                      <Link href={`/events/${featuredGroup.parentPlay.id}`}>
                         Reservar Entradas
                       </Link>
                     </Button>
                   </div>
                   <div className="relative">
-                    {featuredPlay.posterUrl ? (
+                    {featuredGroup.parentPlay.posterUrl ? (
                       <img 
-                        src={featuredPlay.posterUrl} 
-                        alt={`Cartel de ${featuredPlay.title}`}
+                        src={featuredGroup.parentPlay.posterUrl} 
+                        alt={`Cartel de ${featuredGroup.parentPlay.title}`}
                         className="rounded-xl shadow-2xl w-full max-w-sm mx-auto"
                       />
                     ) : (
@@ -135,10 +150,10 @@ export function EventsSection() {
             )}
 
             {/* Event Grid */}
-            {otherPlays.length > 0 && (
+            {otherGroups.length > 0 && (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {otherPlays.map((play) => (
-                  <EventCard key={play.id} play={play} />
+                {otherGroups.map((group) => (
+                  <EventCard key={group.parentPlay.id} play={group.parentPlay} showtimes={group.showtimes} />
                 ))}
               </div>
             )}
