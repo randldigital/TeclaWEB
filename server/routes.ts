@@ -528,22 +528,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { weeklyCode: providedCode } = req.body;
       
+      if (!providedCode) {
+        return res.status(400).json({ 
+          message: "Código semanal requerido",
+          error: "MISSING_WEEKLY_CODE"
+        });
+      }
+      
       // Validate weekly code first
       const weeklyCode = await storage.getWeeklyCode();
       if (!weeklyCode || providedCode !== weeklyCode.code) {
-        return res.status(401).json({ message: "Código semanal inválido" });
+        return res.status(401).json({ 
+          message: "Código semanal inválido",
+          error: "INVALID_WEEKLY_CODE"
+        });
       }
 
       const ticket = await storage.getTicket(req.params.id);
       if (!ticket) {
-        return res.status(404).json({ message: "Ticket no encontrado" });
+        return res.status(404).json({ 
+          message: "Ticket no encontrado",
+          error: "TICKET_NOT_FOUND"
+        });
       }
 
       const user = await storage.getUser(ticket.userId);
       const play = await storage.getPlay(ticket.playId);
 
       if (!user || !play) {
-        return res.status(404).json({ message: "Datos de ticket incompletos" });
+        return res.status(404).json({ 
+          message: "Datos de ticket incompletos",
+          error: "INCOMPLETE_DATA"
+        });
       }
 
       res.json({
@@ -555,11 +571,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         seatNumber: ticket.seatNumber,
         userName: user.name,
         status: ticket.status || 'Pendiente',
-        paidAt: ticket.paidAt
+        paidAt: ticket.paidAt,
+        qrCode: ticket.qrCode
       });
     } catch (error) {
       console.error("Error validating ticket:", error);
-      res.status(500).json({ message: "Error interno del servidor" });
+      res.status(500).json({ 
+        message: "Error interno del servidor",
+        error: "INTERNAL_ERROR"
+      });
     }
   });
 
@@ -674,36 +694,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Ticket validation endpoint (for QR code validation) - old version
-  app.get("/api/tickets/validate/:id", requireAuth, requireRole(["ADMIN", "MONITOR"]), async (req, res) => {
-    try {
-      const ticket = await storage.getTicket(req.params.id);
-      if (!ticket) {
-        return res.status(404).json({ message: "Ticket not found" });
-      }
-
-      const user = await storage.getUser(ticket.userId);
-      const play = await storage.getPlay(ticket.playId);
-
-      if (!user || !play) {
-        return res.status(404).json({ message: "User or play not found" });
-      }
-
-      res.json({
-        id: ticket.id,
-        playTitle: play.title,
-        userName: user.name,
-        date: play.dateTime.toLocaleDateString('es-ES'),
-        time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-        seatNumber: ticket.seatNumber,
-        price: play.basePrice,
-        isValid: true
-      });
-    } catch (error) {
-      console.error("Error validating ticket:", error);
-      res.status(500).json({ message: "Error validating ticket" });
-    }
-  });
+  // Ticket validation endpoint removed - use /api/validation/ticket/:id instead
 
   app.post("/api/tickets/:id/pdf", requireAuth, async (req, res) => {
     try {
@@ -784,6 +775,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching contact messages:", error);
       res.status(500).json({ message: "Error fetching contact messages" });
+    }
+  });
+
+  // Admin API endpoints
+  // Weekly code management
+  app.get("/api/admin/weekly-code", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
+    try {
+      const weeklyCode = await storage.getWeeklyCode();
+      res.json(weeklyCode || { code: '', validFrom: '', validTo: '' });
+    } catch (error) {
+      console.error("Error fetching weekly code:", error);
+      res.status(500).json({ message: "Error fetching weekly code" });
+    }
+  });
+
+  app.post("/api/admin/weekly-code", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
+    try {
+      const { code, validFrom, validTo } = req.body;
+      
+      if (!code || code.length !== 5) {
+        return res.status(400).json({ message: "Código debe tener 5 dígitos" });
+      }
+
+      if (!validFrom || !validTo) {
+        return res.status(400).json({ message: "Fechas de validez requeridas" });
+      }
+
+      await storage.setSetting('weekly_code', code, req.user!.id);
+      await storage.setSetting('weekly_code_valid_from', validFrom, req.user!.id);
+      await storage.setSetting('weekly_code_valid_to', validTo, req.user!.id);
+
+      res.json({ message: "Código semanal actualizado" });
+    } catch (error) {
+      console.error("Error updating weekly code:", error);
+      res.status(500).json({ message: "Error updating weekly code" });
+    }
+  });
+
+  // Validation logs
+  app.get("/api/admin/validation-logs", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
+    try {
+      const logs = await storage.getValidationLogs();
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching validation logs:", error);
+      res.status(500).json({ message: "Error fetching validation logs" });
+    }
+  });
+
+  // Validation statistics
+  app.get("/api/admin/validation-stats", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
+    try {
+      const stats = await storage.getValidationStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching validation stats:", error);
+      res.status(500).json({ message: "Error fetching validation stats" });
     }
   });
 

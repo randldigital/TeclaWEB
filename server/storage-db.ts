@@ -80,6 +80,16 @@ export interface IStorage {
   // Validation system
   getWeeklyCode(): Promise<{ code: string; validFrom: string; validTo: string } | undefined>;
   createValidationLog(log: { ticketId: string; validatedAt: string; validatedBy: string; weeklyCode: string }): Promise<void>;
+  getValidationLogs(): Promise<{ id: string; ticketId: string; validatedAt: string; validatedBy: string; weeklyCode: string }[]>;
+  getValidationStats(): Promise<{
+    totalValidations: number;
+    todayValidations: number;
+    weeklyValidations: number;
+    monthlyValidations: number;
+    activeWeeklyCode: string;
+    lastValidation: string;
+    validationRate: number;
+  }>;
   
   sessionStore: session.Store;
 }
@@ -517,6 +527,89 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       // If all else fails, skip the validation log but don't fail the payment confirmation
       console.warn('Failed to create validation log, but continuing with payment confirmation:', error);
+    }
+  }
+
+  async getValidationLogs(): Promise<{ id: string; ticketId: string; validatedAt: string; validatedBy: string; weeklyCode: string }[]> {
+    try {
+      // Get all settings that start with 'validation_log_'
+      const logs = sqlite.prepare("SELECT key, value FROM settings WHERE key LIKE 'validation_log_%' ORDER BY updated_at DESC").all() as any[];
+      
+      return logs.map(log => {
+        try {
+          const logData = JSON.parse(log.value);
+          return {
+            id: log.key,
+            ticketId: logData.ticketId,
+            validatedAt: logData.validatedAt,
+            validatedBy: logData.validatedBy,
+            weeklyCode: logData.weeklyCode
+          };
+        } catch (parseError) {
+          console.warn('Failed to parse validation log:', log.key, parseError);
+          return null;
+        }
+      }).filter((log): log is { id: string; ticketId: string; validatedAt: string; validatedBy: string; weeklyCode: string } => log !== null);
+    } catch (error) {
+      console.error('Error fetching validation logs:', error);
+      return [];
+    }
+  }
+
+  async getValidationStats(): Promise<{
+    totalValidations: number;
+    todayValidations: number;
+    weeklyValidations: number;
+    monthlyValidations: number;
+    activeWeeklyCode: string;
+    lastValidation: string;
+    validationRate: number;
+  }> {
+    try {
+      const logs = await this.getValidationLogs();
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      const totalValidations = logs.length;
+      const todayValidations = logs.filter(log => new Date(log.validatedAt) >= today).length;
+      const weeklyValidations = logs.filter(log => new Date(log.validatedAt) >= weekAgo).length;
+      const monthlyValidations = logs.filter(log => new Date(log.validatedAt) >= monthAgo).length;
+
+      // Get active weekly code
+      const weeklyCode = await this.getWeeklyCode();
+      const activeWeeklyCode = weeklyCode && new Date() >= new Date(weeklyCode.validFrom) && new Date() <= new Date(weeklyCode.validTo) 
+        ? weeklyCode.code 
+        : '';
+
+      // Get last validation
+      const lastValidation = logs.length > 0 ? logs[0].validatedAt : '';
+
+      // Calculate validation rate (placeholder - could be based on tickets vs validations)
+      const totalTickets = sqlite.prepare('SELECT COUNT(*) as count FROM tickets').get() as any;
+      const validationRate = totalTickets.count > 0 ? Math.round((totalValidations / totalTickets.count) * 100) : 0;
+
+      return {
+        totalValidations,
+        todayValidations,
+        weeklyValidations,
+        monthlyValidations,
+        activeWeeklyCode,
+        lastValidation,
+        validationRate
+      };
+    } catch (error) {
+      console.error('Error calculating validation stats:', error);
+      return {
+        totalValidations: 0,
+        todayValidations: 0,
+        weeklyValidations: 0,
+        monthlyValidations: 0,
+        activeWeeklyCode: '',
+        lastValidation: '',
+        validationRate: 0
+      };
     }
   }
 }

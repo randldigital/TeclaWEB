@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -751,6 +752,7 @@ export default function ValidacionPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
+        <Breadcrumb />
         <div className="text-center mb-8">
           <QrCode className="w-16 h-16 mx-auto mb-4 text-primary" />
           <h1 className="text-3xl font-bold mb-2">Validación de Entradas</h1>

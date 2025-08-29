@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "./lib/protected-route";
+import { ErrorBoundary } from "@/components/error-boundary";
 import HomePage from "@/pages/home-page";
 import ObrasPage from "@/pages/obras-page";
 import GaleriaPage from "@/pages/galeria-page";
@@ -15,6 +16,8 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import EventDetail from "@/pages/event-detail";
 import PostDetail from "@/pages/post-detail";
 import ValidacionPage from "@/pages/validacion";
+import QrValidatorPage from "@/pages/qr-validator";
+import BlogPage from "@/pages/blog-page";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -22,13 +25,15 @@ function Router() {
     <Switch>
       <Route path="/" component={HomePage} />
       <Route path="/obras" component={ObrasPage} />
+      <Route path="/blog" component={BlogPage} />
       <Route path="/galeria" component={GaleriaPage} />
       <Route path="/contacto" component={ContactoPage} />
-      <Route path="/perfil" component={ProfilePage} />
+      <ProtectedRoute path="/perfil" component={ProfilePage} />
       <Route path="/auth" component={AuthPage} />
       <Route path="/events/:id" component={EventDetail} />
       <Route path="/posts/:id" component={PostDetail} />
-      <Route path="/validacion" component={ValidacionPage} />
+      <ProtectedRoute path="/validacion" component={ValidacionPage} roles={["ADMIN", "MONITOR"]} />
+      <ProtectedRoute path="/qr-validator" component={QrValidatorPage} roles={["ADMIN", "MONITOR"]} />
       <ProtectedRoute 
         path="/admin" 
         component={AdminDashboard} 
@@ -41,14 +46,16 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

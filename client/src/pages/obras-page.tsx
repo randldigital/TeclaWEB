@@ -1,6 +1,6 @@
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { Breadcrumb } from "@/components/layout/breadcrumb";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { EventsSection } from "@/components/events-section";
 import { useAuth } from "@/hooks/use-auth";
 

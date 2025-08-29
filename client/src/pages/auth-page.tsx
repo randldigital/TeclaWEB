@@ -33,13 +33,18 @@ export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const { user, loginMutation, registerMutation } = useAuth();
   const [, setLocation] = useLocation();
+  const [location] = useLocation();
+  
+  // Get redirect parameter from URL
+  const urlParams = new URLSearchParams(location.split('?')[1]);
+  const redirectTo = urlParams.get('redirect') || '/';
 
   // Redirect if already logged in (after all hooks are called)
   useEffect(() => {
     if (user) {
-      setLocation("/");
+      setLocation(redirectTo);
     }
-  }, [user, setLocation]);
+  }, [user, setLocation, redirectTo]);
 
   const loginForm = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -60,12 +65,20 @@ export default function AuthPage() {
   });
 
   const onLogin = (data: LoginForm) => {
-    loginMutation.mutate(data);
+    loginMutation.mutate(data, {
+      onSuccess: () => {
+        setLocation(redirectTo);
+      }
+    });
   };
 
   const onRegister = (data: RegisterForm) => {
     const { confirmPassword, ...registerData } = data;
-    registerMutation.mutate(registerData);
+    registerMutation.mutate(registerData, {
+      onSuccess: () => {
+        setLocation(redirectTo);
+      }
+    });
   };
 
   // Don't render anything if user is logged in (will redirect)

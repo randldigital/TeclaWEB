@@ -18,12 +18,11 @@ import {
   Eye, 
   EyeOff,
   Calendar,
-  Mail,
-  AlertCircle
+  Mail
 } from "lucide-react";
 import { Post, Play, User, ContactMessage } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
-import { formatDate, formatTime, parseDatabaseDate } from "@/utils/date-utils";
+import { formatDate, parseDatabaseDate } from "@/utils/date-utils";
 import { Link, Redirect } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -31,6 +30,10 @@ import { CreatePostForm } from "@/components/create-post-form";
 import { CreatePlayForm } from "@/components/create-play-form";
 import { EditPlayForm } from "@/components/edit-play-form";
 import { EditPostForm } from "@/components/edit-post-form";
+import { ValidationManagement } from "@/components/admin/validation-management";
+import { ValidationLogs } from "@/components/admin/validation-logs";
+import { ValidationStats } from "@/components/admin/validation-stats";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -174,6 +177,7 @@ export default function AdminDashboard() {
       <Header />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Breadcrumb />
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-claret-blue mb-2">Panel de Administración</h1>
           <p className="text-gray-600">
@@ -182,7 +186,7 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview" className="flex items-center space-x-2" data-testid="tab-overview">
               <Settings className="w-4 h-4" />
               <span>Resumen</span>
@@ -195,6 +199,12 @@ export default function AdminDashboard() {
               <Theater className="w-4 h-4" />
               <span>Obras</span>
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="validation" className="flex items-center space-x-2" data-testid="tab-validation">
+                <Settings className="w-4 h-4" />
+                <span>Validación</span>
+              </TabsTrigger>
+            )}
             {isAdmin && (
               <TabsTrigger value="messages" className="flex items-center space-x-2" data-testid="tab-messages">
                 <Mail className="w-4 h-4" />
@@ -293,19 +303,37 @@ export default function AdminDashboard() {
                   Nueva Obra
                 </Button>
                 {isAdmin && (
-                  <Button 
-                    variant="outline" 
-                    data-testid="button-settings"
-                    onClick={() => {
-                      toast({
-                        title: "Configuración",
-                        description: "La funcionalidad de configuración estará disponible próximamente.",
-                      });
-                    }}
-                  >
-                    <Settings className="w-4 h-4 mr-2" />
-                    Configuración
-                  </Button>
+                  <>
+                    <Button 
+                      variant="outline" 
+                      data-testid="button-validation-camera"
+                      onClick={() => window.open('/validacion', '_blank')}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Validación Cámara
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      data-testid="button-validation-manual"
+                      onClick={() => window.open('/qr-validator', '_blank')}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Validación Manual
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      data-testid="button-settings"
+                      onClick={() => {
+                        toast({
+                          title: "Configuración",
+                          description: "La funcionalidad de configuración estará disponible próximamente.",
+                        });
+                      }}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Configuración
+                    </Button>
+                  </>
                 )}
               </CardContent>
             </Card>
@@ -612,6 +640,19 @@ export default function AdminDashboard() {
                   <p className="text-gray-600">Los mensajes de contacto aparecerán aquí.</p>
                 </div>
               )}
+            </TabsContent>
+          )}
+
+          {/* Validation Tab (Admin only) */}
+          {isAdmin && (
+            <TabsContent value="validation" className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-claret-blue">Gestión de Validación</h2>
+              </div>
+              
+              <ValidationStats />
+              <ValidationManagement />
+              <ValidationLogs />
             </TabsContent>
           )}
         </Tabs>
