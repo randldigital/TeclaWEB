@@ -18,15 +18,21 @@ import {
   Edit,
   Shield,
   Clock,
-  Download
+  Download,
+  Hash,
+  Activity,
+  Award
 } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { useState } from "react";
+import { EditProfileForm } from "@/components/edit-profile-form";
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [showEditProfile, setShowEditProfile] = useState(false);
 
   // Fetch user's tickets
   const { data: tickets, isLoading: ticketsLoading } = useQuery({
@@ -185,7 +191,11 @@ export default function ProfilePage() {
                       </span>
                   </div>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setShowEditProfile(true)}
+                >
                   <Edit className="w-4 h-4 mr-2" />
                   Editar
                 </Button>
@@ -211,9 +221,16 @@ export default function ProfilePage() {
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
+                  <Hash className="w-5 h-5 text-gray-500" />
+                  <div>
+                    <p className="font-medium">ID de Usuario</p>
+                    <p className="text-sm text-gray-600 font-mono">{user.id}</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
                   <Calendar className="w-5 h-5 text-gray-500" />
                   <div>
-                    <p className="font-medium">Fecha de Registro</p>
+                    <p className="font-medium">Miembro Desde</p>
                     <p className="text-sm text-gray-600">
                       {safeFormatDate(user.createdAt, "d 'de' MMMM 'de' yyyy")}
                     </p>
@@ -231,9 +248,55 @@ export default function ProfilePage() {
                 <div className="flex items-center space-x-3">
                   <Shield className="w-5 h-5 text-gray-500" />
                   <div>
-                    <p className="font-medium">Rol</p>
+                    <p className="font-medium">Rol de Usuario</p>
                     <p className="text-sm text-gray-600">{getRoleText(user.role)}</p>
                   </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <Activity className="w-5 h-5 text-gray-500" />
+                  <div>
+                    <p className="font-medium">Estado de Cuenta</p>
+                    <p className="text-sm text-gray-600">
+                      <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-200">
+                        Activa
+                      </Badge>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* User Activity Summary */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Award className="w-5 h-5 mr-2" />
+                Resumen de Actividad
+              </CardTitle>
+              <CardDescription>
+                Estadísticas de tu participación en el teatro
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <div className="text-2xl font-bold text-claret-blue mb-1">
+                    {tickets?.length || 0}
+                  </div>
+                  <div className="text-sm text-gray-600">Entradas Reservadas</div>
+                </div>
+                <div className="text-center p-4 bg-yellow-50 rounded-lg">
+                  <div className="text-2xl font-bold text-claret-yellow mb-1">
+                    {plays?.filter((play: any) => play.createdBy === user.id).length || 0}
+                  </div>
+                  <div className="text-sm text-gray-600">Obras Creadas</div>
+                </div>
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600 mb-1">
+                    {user.role === 'ADMIN' ? 'Admin' : user.role === 'MONITOR' ? 'Monitor' : 'Usuario'}
+                  </div>
+                  <div className="text-sm text-gray-600">Nivel de Acceso</div>
                 </div>
               </div>
             </CardContent>
@@ -326,6 +389,14 @@ export default function ProfilePage() {
           </Card>
         </div>
       </main>
+      
+      {/* Edit Profile Form */}
+      <EditProfileForm
+        isOpen={showEditProfile}
+        onClose={() => setShowEditProfile(false)}
+        user={user}
+      />
+      
       <Footer />
     </div>
   );

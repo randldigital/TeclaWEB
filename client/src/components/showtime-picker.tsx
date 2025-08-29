@@ -9,9 +9,13 @@ interface Showtime {
   id: string;
   title: string;
   description: string;
-  dateTime: string;
+  posterUrl: string | null;
+  dateTime: Date;
   basePrice: number;
-  genre?: string;
+  genre: string | null;
+  createdBy: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 interface ShowtimePickerProps {
@@ -35,6 +39,11 @@ export function ShowtimePicker({ playId, onShowtimeSelect, selectedShowtimeId }:
         }
         const data = await response.json();
         setShowtimes(data);
+        
+        // Auto-select the first showtime if only one exists and none is selected
+        if (data.length === 1 && !selectedShowtimeId) {
+          onShowtimeSelect(data[0]);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error loading showtimes');
       } finally {
@@ -43,7 +52,7 @@ export function ShowtimePicker({ playId, onShowtimeSelect, selectedShowtimeId }:
     };
 
     fetchShowtimes();
-  }, [playId]);
+  }, [playId, selectedShowtimeId, onShowtimeSelect]);
 
   if (loading) {
     return (
@@ -81,6 +90,68 @@ export function ShowtimePicker({ playId, onShowtimeSelect, selectedShowtimeId }:
     return groups;
   }, {} as Record<string, Showtime[]>);
 
+  // If there's only one showtime, show it in a simplified format
+  if (showtimes.length === 1) {
+    const singleShowtime = showtimes[0];
+    const showtimeDate = new Date(singleShowtime.dateTime);
+    const isSelected = selectedShowtimeId === singleShowtime.id;
+    
+    return (
+      <div className="space-y-4">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Showtime Disponible</h3>
+          <p className="text-gray-600">Este evento tiene una única función</p>
+        </div>
+
+        <Card className={`border-2 ${isSelected ? 'border-claret-blue bg-claret-blue/5' : 'border-gray-200'}`}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-claret-blue" />
+                  <span className="font-medium text-gray-900">
+                    {format(showtimeDate, 'EEEE, d MMMM', { locale: es })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-claret-blue" />
+                  <span className="font-medium text-gray-900">
+                    {format(showtimeDate, 'HH:mm')}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-2xl font-bold text-claret-red">
+                  €{singleShowtime.basePrice}
+                </div>
+                <div className="text-sm text-gray-500">Precio por entrada</div>
+              </div>
+            </div>
+            
+            {!isSelected && (
+              <Button
+                className="w-full mt-4 bg-claret-blue hover:bg-claret-navy text-white"
+                onClick={() => onShowtimeSelect(singleShowtime)}
+              >
+                Seleccionar este showtime
+              </Button>
+            )}
+            
+            {isSelected && (
+              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2 text-green-800">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="font-medium">Showtime seleccionado</span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Multiple showtimes - show grouped format
   return (
     <div className="space-y-6">
       <div className="text-center">
@@ -143,3 +214,4 @@ export function ShowtimePicker({ playId, onShowtimeSelect, selectedShowtimeId }:
     </div>
   );
 }
+

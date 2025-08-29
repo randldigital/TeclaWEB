@@ -14,6 +14,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ShowtimePicker } from "@/components/showtime-picker";
+import { ImagePreview } from "@/components/image-preview";
+import { TheaterLocation } from "@/components/theater-location";
+import { getTheaterLocation } from "@/utils/maps-utils";
+import { TicketQuantitySelector } from "@/components/ticket-quantity-selector";
 
 export default function EventDetail() {
   const { id } = useParams();
@@ -22,6 +26,10 @@ export default function EventDetail() {
   const [isReserving, setIsReserving] = useState(false);
   const [createdTicket, setCreatedTicket] = useState<any>(null);
   const [selectedShowtime, setSelectedShowtime] = useState<Play | null>(null);
+  const [ticketQuantity, setTicketQuantity] = useState(1);
+  const [adultTickets, setAdultTickets] = useState(1);
+  const [childTickets, setChildTickets] = useState(0);
+  const [totalPrice, setTotalPrice] = useState(0);
   
   const { data: play, isLoading, error } = useQuery<Play>({
     queryKey: ["/api/plays", id],
@@ -44,14 +52,20 @@ export default function EventDetail() {
       
       const response = await apiRequest("POST", "/api/tickets", {
         playId: selectedShowtime.id,
+        quantity: ticketQuantity,
+        adultTickets,
+        childTickets,
       });
       return response.json();
     },
     onSuccess: (ticketData) => {
       setCreatedTicket(ticketData);
+      const isGroupBooking = ticketQuantity > 1;
       toast({
-        title: "¡Entrada reservada!",
-        description: "Tu entrada ha sido reservada exitosamente. Recibirás un email de confirmación.",
+        title: isGroupBooking ? "¡Entradas de grupo reservadas!" : "¡Entrada reservada!",
+        description: isGroupBooking 
+          ? `Tus ${ticketQuantity} entradas han sido reservadas exitosamente. Recibirás un email de confirmación.`
+          : "Tu entrada ha sido reservada exitosamente. Recibirás un email de confirmación.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/tickets"] });
     },
@@ -241,8 +255,18 @@ export default function EventDetail() {
                     <div>
                       <p className="font-medium">Precio</p>
                       <p className="text-2xl font-bold text-claret-red">
-                        {selectedShowtime ? `${selectedShowtime.basePrice}€` : "Selecciona una fecha"}
+                        {selectedShowtime 
+                          ? ticketQuantity > 1 
+                            ? `${totalPrice.toFixed(2)}€` 
+                            : `${selectedShowtime.basePrice}€`
+                          : "Selecciona una fecha"
+                        }
                       </p>
+                      {ticketQuantity > 1 && (
+                        <p className="text-sm text-gray-600">
+                          {ticketQuantity} entradas ({adultTickets} adultos + {childTickets} niños)
+                        </p>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -267,6 +291,19 @@ export default function EventDetail() {
                   />
                 </CardContent>
               </Card>
+
+              {/* Ticket Quantity Selector */}
+              {selectedShowtime && user && !isEventPassed && (
+                <TicketQuantitySelector
+                  basePrice={selectedShowtime.basePrice}
+                  onQuantityChange={(quantity, adults, children, total) => {
+                    setTicketQuantity(quantity);
+                    setAdultTickets(adults);
+                    setChildTickets(children);
+                    setTotalPrice(total);
+                  }}
+                />
+              )}
 
               {/* Reservation Button */}
               <Card>
@@ -299,9 +336,9 @@ export default function EventDetail() {
                         ? "Selecciona una fecha y hora"
                         : isReserving || reserveTicketMutation.isPending
                           ? "Reservando..."
-                          : user
-                            ? `Reservar Entrada - ${selectedShowtime.basePrice}€`
-                            : "Inicia Sesión para Reservar"
+                                                  : user
+                          ? `Reservar ${ticketQuantity > 1 ? `${ticketQuantity} Entradas` : 'Entrada'} - ${ticketQuantity > 1 ? `${totalPrice.toFixed(2)}€` : `${selectedShowtime.basePrice}€`}`
+                          : "Inicia Sesión para Reservar"
                     }
                   </Button>
                   
@@ -321,10 +358,13 @@ export default function EventDetail() {
                   <CardHeader>
                     <CardTitle className="text-green-800 flex items-center">
                       <CheckCircle className="w-5 h-5 mr-2" />
-                      ¡Entrada Reservada!
+                      {ticketQuantity > 1 ? "¡Entradas de Grupo Reservadas!" : "¡Entrada Reservada!"}
                     </CardTitle>
                     <CardDescription className="text-green-700">
-                      Tu entrada ha sido reservada exitosamente. Puedes descargarla ahora mismo.
+                      {ticketQuantity > 1 
+                        ? `Tus ${ticketQuantity} entradas han sido reservadas exitosamente. Puedes descargarlas ahora mismo.`
+                        : "Tu entrada ha sido reservada exitosamente. Puedes descargarla ahora mismo."
+                      }
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -378,23 +418,37 @@ export default function EventDetail() {
               )}
             </div>
             
-            {/* Event Poster */}
-            <div className="relative">
-              {play.posterUrl ? (
-                <img 
-                  src={play.posterUrl} 
+            {/* Right Column: Poster and Location */}
+            <div className="space-y-6">
+              {/* Event Poster */}
+              <div className="relative">
+                <ImagePreview
+                  src={play.posterUrl || undefined}
                   alt={`Cartel de ${play.title}`}
-                  className="w-full h-auto rounded-xl shadow-2xl"
+                  title={play.title}
+                  subtitle={play.genre || "Teatro"}
+                  showOverlay={true}
+                  aspectRatio="portrait"
+                  className="w-full"
                 />
-              ) : (
-                <div className="w-full h-96 bg-gradient-to-br from-claret-blue to-claret-navy rounded-xl shadow-2xl flex items-center justify-center">
-                  <div className="text-center text-white">
-                    <Theater className="w-24 h-24 text-claret-yellow mx-auto mb-4" />
-                    <h3 className="text-2xl font-bold mb-2">{play.title}</h3>
-                    <p className="text-blue-200">{play.genre || "Teatro"}</p>
+                
+                {/* Image attribution or info */}
+                {play.posterUrl && (
+                  <div className="mt-3 text-center">
+                    <p className="text-xs text-gray-500">
+                      Cartel oficial de la obra
+                    </p>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+
+              {/* Theater Location - Positioned below poster in right column */}
+              <TheaterLocation
+                address={getTheaterLocation().address}
+                mapsUrl={getTheaterLocation().mapsUrl}
+                embedUrl={getTheaterLocation().embedUrl}
+                showMap={true}
+              />
             </div>
           </div>
         ) : null}

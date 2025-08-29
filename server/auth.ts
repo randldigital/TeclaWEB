@@ -104,6 +104,8 @@ export function setupAuth(app: Express) {
           email: user.email,
           name: user.name,
           role: user.role,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
         });
       });
     } catch (error) {
@@ -136,6 +138,8 @@ export function setupAuth(app: Express) {
           email: user.email,
           name: user.name,
           role: user.role,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
         });
       });
     })(req, res, next);
@@ -157,6 +161,8 @@ export function setupAuth(app: Express) {
       email: req.user.email,
       name: req.user.name,
       role: req.user.role,
+      createdAt: req.user.createdAt,
+      updatedAt: req.user.updatedAt,
     });
   });
 }

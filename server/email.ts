@@ -20,6 +20,19 @@ interface TicketEmailData {
   qrCodeUrl?: string;
 }
 
+interface GroupTicketEmailData {
+  ticketId: string;
+  playTitle: string;
+  userName: string;
+  userEmail: string;
+  date: string;
+  time: string;
+  adultTickets: number;
+  childTickets: number;
+  totalPrice: number;
+  qrCodeUrl?: string;
+}
+
 class EmailService {
   private transporter: nodemailer.Transporter | null = null;
 
@@ -108,6 +121,17 @@ class EmailService {
   async sendTicketConfirmation(data: TicketEmailData): Promise<boolean> {
     const html = this.generateTicketEmailHTML(data);
     const subject = `Confirmación de Entrada - ${data.playTitle}`;
+
+    return this.sendEmail({
+      to: data.userEmail,
+      subject,
+      html,
+    });
+  }
+
+  async sendGroupTicketConfirmation(data: GroupTicketEmailData): Promise<boolean> {
+    const html = this.generateGroupTicketEmailHTML(data);
+    const subject = `Confirmación de Entradas de Grupo - ${data.playTitle}`;
 
     return this.sendEmail({
       to: data.userEmail,
@@ -398,6 +422,131 @@ class EmailService {
         
         <div class="footer">
           <p>© 2024 TeclaWEB - Colegio Claret Sevilla</p>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
+  private generateGroupTicketEmailHTML(data: GroupTicketEmailData): string {
+    return `
+      <!DOCTYPE html>
+      <html lang="es">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Confirmación de Entradas de Grupo</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+          }
+          .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+          }
+          .content {
+            background: #f9f9f9;
+            padding: 30px;
+            border-radius: 0 0 10px 10px;
+          }
+          .ticket-info {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+          }
+          .group-details {
+            background: #f0f8ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #4CAF50;
+          }
+          .qr-code {
+            text-align: center;
+            margin: 20px 0;
+          }
+          .qr-code img {
+            max-width: 200px;
+            height: auto;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+          }
+          .button {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 0;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>🎭 Confirmación de Entradas de Grupo</h1>
+          <p>Tus entradas han sido confirmadas</p>
+        </div>
+        
+        <div class="content">
+          <h2>Hola ${data.userName},</h2>
+          <p>Gracias por tu compra. Tus entradas de grupo han sido confirmadas para el siguiente evento:</p>
+          
+          <div class="ticket-info">
+            <h3>${data.playTitle}</h3>
+            <p><strong>Fecha:</strong> ${data.date}</p>
+            <p><strong>Hora:</strong> ${data.time}</p>
+            <p><strong>ID de Entradas:</strong> ${data.ticketId}</p>
+          </div>
+
+          <div class="group-details">
+            <h4>📋 Detalles del Grupo</h4>
+            <p><strong>Total de entradas:</strong> ${data.adultTickets + data.childTickets}</p>
+            <p><strong>Adultos:</strong> ${data.adultTickets} entrada(s)</p>
+            <p><strong>Niños:</strong> ${data.childTickets} entrada(s) (1 entrada por cada 2 niños)</p>
+            <p><strong>Precio total:</strong> €${data.totalPrice.toFixed(2)}</p>
+          </div>
+          
+          ${data.qrCodeUrl ? `
+            <div class="qr-code">
+              <p><strong>Código QR para entrada del grupo:</strong></p>
+              <img src="${data.qrCodeUrl}" alt="QR Code" />
+              <p><em>Este código QR es válido para todo el grupo</em></p>
+            </div>
+          ` : ''}
+          
+          <p><strong>Instrucciones importantes:</strong></p>
+          <ul>
+            <li>Llega 15 minutos antes del inicio</li>
+            <li>Presenta este email o el código QR en la entrada</li>
+            <li>El código QR es válido para todo el grupo</li>
+            <li>No se permiten cambios ni devoluciones</li>
+          </ul>
+          
+          <p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
+          
+          <div style="text-align: center;">
+            <a href="mailto:info@teclaweb.com" class="button">Contactar Soporte</a>
+          </div>
+        </div>
+        
+        <div class="footer">
+          <p>© 2024 TeclaWEB - Colegio Claret Sevilla</p>
+          <p>Este es un email automático, por favor no respondas a este mensaje.</p>
         </div>
       </body>
       </html>

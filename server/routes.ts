@@ -165,6 +165,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Showtimes routes (grouped plays)
+  app.get("/api/plays-grouped", async (req, res) => {
+    try {
+      const groupedPlays = await storage.getPlaysGrouped();
+      res.json(groupedPlays);
+    } catch (error) {
+      console.error("Error fetching grouped plays:", error);
+      res.status(500).json({ message: "Error fetching grouped plays" });
+    }
+  });
+
+  app.get("/api/plays/:id/showtimes", async (req, res) => {
+    try {
+      const showtimes = await storage.getShowtimesForPlay(req.params.id);
+      res.json(showtimes);
+    } catch (error) {
+      console.error("Error fetching showtimes:", error);
+      res.status(500).json({ message: "Error fetching showtimes" });
+    }
+  });
+
+  // Play Statistics endpoint
+  app.get("/api/plays/:id/statistics", requireAuth, requireRole(["ADMIN", "MONITOR"]), async (req, res) => {
+    try {
+      const statistics = await storage.getPlayStatistics(req.params.id);
+      if (!statistics) {
+        return res.status(404).json({ message: "Play not found" });
+      }
+      res.json(statistics);
+    } catch (error) {
+      console.error("Error fetching play statistics:", error);
+      res.status(500).json({ message: "Error fetching play statistics" });
+    }
+  });
+
+  // User Management endpoints (ADMIN only)
+  app.get("/api/admin/users", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
+    try {
+      const { role, search, limit } = req.query;
+      
+      let users;
+      if (role && role !== 'all') {
+        users = await storage.getUsersByRole(role as string);
+      } else {
+        users = await storage.getAllUsers();
+      }
+
+      // Apply search filter if provided
+      if (search) {
+        const searchTerm = (search as string).toLowerCase();
+        users = users.filter(user => 
+          user.name.toLowerCase().includes(searchTerm) ||
+          user.email.toLowerCase().includes(searchTerm)
+        );
+      }
+
+      // Apply limit if provided
+      if (limit) {
+        users = users.slice(0, parseInt(limit as string));
+      }
+
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Error fetching users" });
+    }
+  });
+
+  app.get("/api/admin/users/emails", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
+    try {
+      const { format = 'json', role } = req.query;
+      const emailList = await storage.getUserEmailList();
+      
+      let filteredEmails = emailList;
+      if (role && role !== 'all') {
+        filteredEmails = emailList.filter(user => user.role === role);
+      }
+
+      if (format === 'csv') {
+        const csvContent = [
+          'Name,Email,Role,Registration Date',
+          ...filteredEmails.map(user => 
+            `"${user.name}","${user.email}","${user.role}","${user.createdAt}"`
+          )
+        ].join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename="user-emails.csv"');
+        res.send(csvContent);
+      } else if (format === 'text') {
+        const textContent = filteredEmails.map(user => user.email).join('\n');
+        res.setHeader('Content-Type', 'text/plain');
+        res.setHeader('Content-Disposition', 'attachment; filename="user-emails.txt"');
+        res.send(textContent);
+      } else {
+        res.json(filteredEmails);
+      }
+    } catch (error) {
+      console.error("Error fetching user emails:", error);
+      res.status(500).json({ message: "Error fetching user emails" });
+    }
+  });
+
+  app.get("/api/admin/users/stats", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
+    try {
+      const statistics = await storage.getUserStatistics();
+      res.json(statistics);
+    } catch (error) {
+      console.error("Error fetching user statistics:", error);
+      res.status(500).json({ message: "Error fetching user statistics" });
+    }
+  });
+
+  // Update user role endpoint
+  app.put("/api/admin/users/:id/role", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
+    try {
+      const { role } = req.body;
+      const userId = req.params.id;
+      
+      // Validate role
+      const validRoles = ["ADMIN", "MONITOR", "USER"];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({ message: "Rol inválido" });
+      }
+      
+      // Update user role
+      const updatedUser = await storage.updateUserRole(userId, role);
+      if (!updatedUser) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+      
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user role:", error);
+      res.status(500).json({ message: "Error updating user role" });
+    }
+  });
+
+  app.post("/api/plays/:id/showtimes", requireAuth, requireRole(["ADMIN", "MONITOR"]), async (req, res) => {
+    try {
+      const validatedData = insertPlaySchema.parse({
+        ...req.body,
+        createdBy: req.user!.id,
+      });
+      const showtime = await storage.createShowtime(validatedData, req.params.id);
+      res.status(201).json(showtime);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating showtime:", error);
+      res.status(500).json({ message: "Error creating showtime" });
+    }
+  });
+
   // Tickets routes
   app.get("/api/tickets", requireAuth, async (req, res) => {
     try {
@@ -194,8 +349,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tickets", requireAuth, async (req, res) => {
     try {
-      // Generate a unique ticket ID
-      const ticketId = `TICKET-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const { playId, quantity = 1, adultTickets = 1, childTickets = 0 } = req.body;
+      
+      // Validate quantities for group bookings
+      if (quantity < 1 || quantity > 6) {
+        return res.status(400).json({ message: "Cantidad debe estar entre 1 y 6" });
+      }
+      
+      if (adultTickets + childTickets !== quantity) {
+        return res.status(400).json({ message: "La suma de adultos y niños debe igualar la cantidad total" });
+      }
+      
+      // Generate a unique ticket ID (use GROUP prefix for group tickets)
+      const ticketId = quantity > 1 
+        ? `GROUP-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        : `TICKET-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       
       // Generate QR code as base64 image
       const QRCode = await import('qrcode');
@@ -213,33 +381,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Convert buffer to base64 string
       const qrCodeBase64 = qrCodeBuffer.toString('base64');
       
+      // Calculate total price for group bookings
+      const play = await storage.getPlay(playId);
+      if (!play) {
+        return res.status(404).json({ message: "Play not found" });
+      }
+      
+      const totalPrice = storage.calculateGroupPrice(play.basePrice, adultTickets, childTickets);
+      
       const validatedData = insertTicketSchema.parse({
-        ...req.body,
+        playId,
         userId: req.user!.id,
         qrCode: qrCodeBase64,
       });
+      
       const ticket = await storage.createTicket({
         ...validatedData,
-        id: ticketId, // Pass the generated ticket ID separately
+        id: ticketId,
+        quantity,
+        adultTickets,
+        childTickets,
+        totalPrice,
       });
       
       // Send email confirmation
       try {
         const user = await storage.getUser(req.user!.id);
-        const play = await storage.getPlay(ticket.playId);
         
         if (user && play) {
-          await emailService.sendTicketConfirmation({
-            ticketId: ticket.id,
-            playTitle: play.title,
-            userName: user.name,
-            userEmail: user.email,
-            date: play.dateTime.toLocaleDateString('es-ES'),
-            time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-            price: play.basePrice,
-            seatNumber: ticket.seatNumber || undefined,
-            qrCodeUrl: `data:image/png;base64,${ticket.qrCode}`,
-          });
+          if (quantity > 1) {
+            // Send group ticket confirmation
+            await emailService.sendGroupTicketConfirmation({
+              ticketId: ticket.id,
+              playTitle: play.title,
+              userName: user.name,
+              userEmail: user.email,
+              date: play.dateTime.toLocaleDateString('es-ES'),
+              time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+              adultTickets,
+              childTickets,
+              totalPrice,
+              qrCodeUrl: `data:image/png;base64,${ticket.qrCode}`,
+            });
+          } else {
+            // Send single ticket confirmation (existing functionality)
+            await emailService.sendTicketConfirmation({
+              ticketId: ticket.id,
+              playTitle: play.title,
+              userName: user.name,
+              userEmail: user.email,
+              date: play.dateTime.toLocaleDateString('es-ES'),
+              time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+              price: play.basePrice,
+              seatNumber: ticket.seatNumber || undefined,
+              qrCodeUrl: `data:image/png;base64,${ticket.qrCode}`,
+            });
+          }
         }
       } catch (emailError) {
         console.error('Failed to send ticket confirmation email:', emailError);
@@ -562,18 +759,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      res.json({
+      // Check if it's a group ticket
+      const isGroupTicket = ticket.quantity > 1;
+      
+      const responseData = {
         id: ticket.id,
         playTitle: play.title,
         date: play.dateTime.toLocaleDateString('es-ES'),
         time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-        price: play.basePrice,
-        seatNumber: ticket.seatNumber,
         userName: user.name,
         status: ticket.status || 'Pendiente',
         paidAt: ticket.paidAt,
-        qrCode: ticket.qrCode
-      });
+        qrCode: ticket.qrCode,
+        isGroupTicket,
+        quantity: ticket.quantity,
+        adultTickets: ticket.adultTickets,
+        childTickets: ticket.childTickets,
+        totalPrice: ticket.totalPrice,
+        basePrice: play.basePrice,
+        seatNumber: ticket.seatNumber,
+      };
+
+      res.json(responseData);
     } catch (error) {
       console.error("Error validating ticket:", error);
       res.status(500).json({ 
@@ -832,6 +1039,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching validation stats:", error);
       res.status(500).json({ message: "Error fetching validation stats" });
+    }
+  });
+
+  // User profile routes
+  app.put("/api/user/profile", requireAuth, async (req, res) => {
+    try {
+      const { name, email } = req.body;
+      
+      // Validate input
+      if (!name || !email) {
+        return res.status(400).json({ message: "Nombre y email son requeridos" });
+      }
+      
+      if (name.length < 2) {
+        return res.status(400).json({ message: "El nombre debe tener al menos 2 caracteres" });
+      }
+      
+      // Check if email is valid
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Email inválido" });
+      }
+      
+      // Check if email is already taken by another user
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser && existingUser.id !== req.user!.id) {
+        return res.status(400).json({ message: "Este email ya está en uso" });
+      }
+      
+      // Update user profile
+      const updatedUser = await storage.updateUser(req.user!.id, {
+        name,
+        email,
+      });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "Usuario no encontrado" });
+      }
+      
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ message: "Error al actualizar el perfil" });
     }
   });
 

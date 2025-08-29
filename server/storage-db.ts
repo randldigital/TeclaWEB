@@ -1,6 +1,8 @@
 import session from "express-session";
 import { nanoid } from "nanoid";
 import Database from 'better-sqlite3';
+import fs from 'fs';
+import path from 'path';
 
 // Create a direct SQLite connection
 const sqlite = new Database('teclaweb.db');
@@ -40,6 +42,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<InsertUser>): Promise<User | undefined>;
+  updateUserRole(userId: string, role: string): Promise<User | undefined>;
   
   // Posts
   getPosts(limit?: number, status?: string): Promise<Post[]>;
@@ -55,10 +58,20 @@ export interface IStorage {
   updatePlay(id: string, updates: Partial<InsertPlay>): Promise<Play | undefined>;
   deletePlay(id: string): Promise<boolean>;
   
+  // Showtimes (grouped plays)
+  getPlaysGrouped(): Promise<{ parentPlay: Play; showtimes: Play[] }[]>;
+  getShowtimesForPlay(parentPlayId: string): Promise<Play[]>;
+  createShowtime(play: InsertPlay, parentPlayId: string): Promise<Play>;
+  
   // Tickets
   getTickets(userId?: string, playId?: string): Promise<Ticket[]>;
   getTicket(id: string): Promise<Ticket | undefined>;
-  createTicket(ticket: InsertTicket): Promise<Ticket>;
+  createTicket(ticket: InsertTicket & { 
+    quantity?: number;
+    adultTickets?: number;
+    childTickets?: number;
+    totalPrice?: number;
+  }): Promise<Ticket>;
   updateTicketStatus(id: string, status: 'Pendiente' | 'Pagado'): Promise<Ticket | undefined>;
   deleteTicket(id: string): Promise<boolean>;
   
@@ -169,6 +182,19 @@ export class DatabaseStorage implements IStorage {
     
     sqlite.prepare(`UPDATE users SET ${finalSetClause} WHERE id = ?`).run(...finalValues, id);
     return this.getUser(id);
+  }
+
+  async updateUserRole(userId: string, role: string): Promise<User | undefined> {
+    const result = sqlite.prepare('UPDATE users SET role = ?, updated_at = ? WHERE id = ?').run(
+      role, 
+      new Date().toISOString(), 
+      userId
+    );
+    
+    if (result.changes > 0) {
+      return this.getUser(userId);
+    }
+    return undefined;
   }
 
   // Post methods
@@ -284,10 +310,24 @@ export class DatabaseStorage implements IStorage {
       updatedAt: new Date(),
     };
     
+    // Insert the play with parent_play_id set to itself and showtime_order = 0
     sqlite.prepare(`
-      INSERT INTO plays (id, title, description, poster_url, date_time, base_price, genre, created_by, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(play.id, play.title, play.description, play.posterUrl, play.dateTime.toISOString(), play.basePrice, play.genre, play.createdBy, play.createdAt.toISOString(), play.updatedAt.toISOString());
+      INSERT INTO plays (id, title, description, poster_url, date_time, base_price, genre, created_by, created_at, updated_at, parent_play_id, showtime_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      play.id, 
+      play.title, 
+      play.description, 
+      play.posterUrl, 
+      play.dateTime.toISOString(), 
+      play.basePrice, 
+      play.genre, 
+      play.createdBy, 
+      play.createdAt.toISOString(), 
+      play.updatedAt.toISOString(),
+      play.id, // parent_play_id = id (self-referencing)
+      0 // showtime_order = 0 (first showtime)
+    );
     
     return play;
   }
@@ -321,8 +361,166 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deletePlay(id: string): Promise<boolean> {
-    const result = sqlite.prepare('DELETE FROM plays WHERE id = ?').run(id);
-    return result.changes > 0;
+    // Start transaction for data integrity
+    sqlite.prepare('BEGIN TRANSACTION').run();
+    
+    try {
+      // 1. Get play info for image cleanup
+      const play = await this.getPlay(id);
+      
+      // 2. Delete all related tickets first (foreign key constraint)
+      const ticketsDeleted = sqlite.prepare('DELETE FROM tickets WHERE play_id = ?').run(id);
+      console.log(`Deleted ${ticketsDeleted.changes} tickets for play ${id}`);
+      
+      // 3. Delete all showtimes (plays with this parent_play_id)
+      const showtimesDeleted = sqlite.prepare('DELETE FROM plays WHERE parent_play_id = ? AND id != ?').run(id, id);
+      console.log(`Deleted ${showtimesDeleted.changes} showtimes for play ${id}`);
+      
+      // 4. Delete the main play
+      const playDeleted = sqlite.prepare('DELETE FROM plays WHERE id = ?').run(id);
+      console.log(`Deleted main play ${id}`);
+      
+      // 5. Clean up poster image if exists
+      if (play?.posterUrl) {
+        const filename = play.posterUrl.split('/').pop();
+        if (filename) {
+          this.deleteFile(filename);
+          console.log(`Deleted poster image: ${filename}`);
+        }
+      }
+      
+      // Commit transaction
+      sqlite.prepare('COMMIT').run();
+      
+      const totalDeleted = ticketsDeleted.changes + showtimesDeleted.changes + playDeleted.changes;
+      console.log(`Total records deleted: ${totalDeleted}`);
+      
+      return playDeleted.changes > 0;
+      
+    } catch (error) {
+      // Rollback on error
+      sqlite.prepare('ROLLBACK').run();
+      console.error('Error deleting play:', error);
+      throw error;
+    }
+  }
+
+  private deleteFile(filename: string): boolean {
+    try {
+      const filePath = path.join(process.cwd(), 'uploads', filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      return false;
+    }
+  }
+
+  // Showtime methods
+  async getPlaysGrouped(): Promise<{ parentPlay: Play; showtimes: Play[] }[]> {
+    // Get all plays and group them by parent_play_id
+    const results = sqlite.prepare(`
+      SELECT * FROM plays 
+      ORDER BY parent_play_id, showtime_order, date_time
+    `).all() as any[];
+    
+    const grouped: { [key: string]: Play[] } = {};
+    
+    results.forEach(result => {
+      const play: Play = {
+        id: result.id,
+        title: result.title,
+        description: result.description,
+        posterUrl: result.poster_url,
+        dateTime: new Date(result.date_time),
+        basePrice: result.base_price,
+        genre: result.genre,
+        createdBy: result.created_by,
+        createdAt: new Date(result.created_at),
+        updatedAt: new Date(result.updated_at),
+      };
+      
+      const parentId = result.parent_play_id || result.id;
+      if (!grouped[parentId]) {
+        grouped[parentId] = [];
+      }
+      grouped[parentId].push(play);
+    });
+    
+    // Convert to array format with parent play as first showtime
+    return Object.values(grouped).map(showtimes => ({
+      parentPlay: showtimes[0], // First showtime becomes the parent
+      showtimes: showtimes.sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime())
+    }));
+  }
+
+  async getShowtimesForPlay(parentPlayId: string): Promise<Play[]> {
+    // Get the parent play and all its showtimes, including the parent itself
+    const results = sqlite.prepare(`
+      SELECT * FROM plays 
+      WHERE parent_play_id = ? OR id = ?
+      ORDER BY showtime_order, date_time
+    `).all(parentPlayId, parentPlayId) as any[];
+    
+    return results.map(result => ({
+      id: result.id,
+      title: result.title,
+      description: result.description,
+      posterUrl: result.poster_url,
+      dateTime: new Date(result.date_time),
+      basePrice: result.base_price,
+      genre: result.genre,
+      createdBy: result.created_by,
+      createdAt: new Date(result.created_at),
+      updatedAt: new Date(result.updated_at),
+    }));
+  }
+
+  async createShowtime(play: InsertPlay, parentPlayId: string): Promise<Play> {
+    // Get the next showtime order
+    const maxOrder = sqlite.prepare(`
+      SELECT MAX(showtime_order) as max_order 
+      FROM plays 
+      WHERE parent_play_id = ?
+    `).get(parentPlayId) as any;
+    
+    const nextOrder = (maxOrder?.max_order || 0) + 1;
+    
+    const newShowtime: Play = {
+      id: nanoid(),
+      title: play.title,
+      description: play.description,
+      posterUrl: play.posterUrl || null,
+      dateTime: play.dateTime,
+      basePrice: play.basePrice || 5.0,
+      genre: play.genre || null,
+      createdBy: play.createdBy,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    sqlite.prepare(`
+      INSERT INTO plays (id, title, description, poster_url, date_time, base_price, genre, created_by, created_at, updated_at, parent_play_id, showtime_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      newShowtime.id, 
+      newShowtime.title, 
+      newShowtime.description, 
+      newShowtime.posterUrl, 
+      newShowtime.dateTime.toISOString(), 
+      newShowtime.basePrice, 
+      newShowtime.genre, 
+      newShowtime.createdBy, 
+      newShowtime.createdAt.toISOString(), 
+      newShowtime.updatedAt.toISOString(),
+      parentPlayId,
+      nextOrder
+    );
+    
+    return newShowtime;
   }
 
   // Ticket methods
@@ -353,6 +551,10 @@ export class DatabaseStorage implements IStorage {
       status: result.status,
       paidAt: result.paid_at ? new Date(result.paid_at) : null,
       createdAt: new Date(result.created_at),
+      quantity: result.quantity || 1,
+      adultTickets: result.adult_tickets || 1,
+      childTickets: result.child_tickets || 0,
+      totalPrice: result.total_price || 0.0,
     }));
   }
 
@@ -369,10 +571,20 @@ export class DatabaseStorage implements IStorage {
       status: result.status,
       paidAt: result.paid_at ? new Date(result.paid_at) : null,
       createdAt: new Date(result.created_at),
+      quantity: result.quantity || 1,
+      adultTickets: result.adult_tickets || 1,
+      childTickets: result.child_tickets || 0,
+      totalPrice: result.total_price || 0.0,
     };
   }
 
-  async createTicket(insertTicket: InsertTicket & { id?: string }): Promise<Ticket> {
+  async createTicket(insertTicket: InsertTicket & { 
+    id?: string;
+    quantity?: number;
+    adultTickets?: number;
+    childTickets?: number;
+    totalPrice?: number;
+  }): Promise<Ticket> {
     const ticket: Ticket = {
       id: insertTicket.id || nanoid(),
       userId: insertTicket.userId,
@@ -382,12 +594,29 @@ export class DatabaseStorage implements IStorage {
       status: insertTicket.status || "Pendiente",
       paidAt: insertTicket.paidAt || null,
       createdAt: new Date(),
+      quantity: insertTicket.quantity || 1,
+      adultTickets: insertTicket.adultTickets || 1,
+      childTickets: insertTicket.childTickets || 0,
+      totalPrice: insertTicket.totalPrice || 0.0,
     };
     
     sqlite.prepare(`
-      INSERT INTO tickets (id, user_id, play_id, qr_code, seat_number, status, paid_at, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(ticket.id, ticket.userId, ticket.playId, ticket.qrCode, ticket.seatNumber, ticket.status, ticket.paidAt?.toISOString(), ticket.createdAt.toISOString());
+      INSERT INTO tickets (id, user_id, play_id, qr_code, seat_number, status, paid_at, created_at, quantity, adult_tickets, child_tickets, total_price)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      ticket.id, 
+      ticket.userId, 
+      ticket.playId, 
+      ticket.qrCode, 
+      ticket.seatNumber, 
+      ticket.status, 
+      ticket.paidAt?.toISOString(), 
+      ticket.createdAt.toISOString(),
+      ticket.quantity,
+      ticket.adultTickets,
+      ticket.childTickets,
+      ticket.totalPrice
+    );
     
     return ticket;
   }
@@ -404,15 +633,174 @@ export class DatabaseStorage implements IStorage {
     return result.changes > 0;
   }
 
+  // Helper method for calculating group ticket pricing
+  calculateGroupPrice(basePrice: number, adultTickets: number, childTickets: number): number {
+    const adultTotal = adultTickets * basePrice;
+    const childTotal = Math.ceil(childTickets / 2) * basePrice; // 1 ticket per 2 children
+    return adultTotal + childTotal;
+  }
+
+  // Helper method to get play base price
+  async getPlayBasePrice(playId: string): Promise<number> {
+    const result = sqlite.prepare('SELECT base_price FROM plays WHERE id = ?').get(playId) as any;
+    return result ? result.base_price : 0;
+  }
+
+  // Play Statistics methods
+  async getPlayStatistics(playId: string): Promise<any> {
+    const result = sqlite.prepare(`
+      SELECT 
+        p.title,
+        p.base_price,
+        COUNT(t.id) as total_ticket_records,
+        SUM(t.quantity) as total_people,
+        COUNT(CASE WHEN t.status = 'Pagado' THEN 1 END) as paid_ticket_records,
+        SUM(CASE WHEN t.status = 'Pagado' THEN t.quantity ELSE 0 END) as paid_people,
+        COUNT(CASE WHEN t.status = 'Pendiente' THEN 1 END) as pending_ticket_records,
+        SUM(CASE WHEN t.status = 'Pendiente' THEN t.quantity ELSE 0 END) as pending_people,
+        ROUND(
+          CASE 
+            WHEN SUM(t.quantity) > 0 
+            THEN SUM(CASE WHEN t.status = 'Pagado' THEN t.quantity ELSE 0 END) * 100.0 / SUM(t.quantity)
+            ELSE 0 
+          END, 2
+        ) as payment_rate,
+        SUM(t.total_price) as money_expected,
+        SUM(CASE WHEN t.status = 'Pagado' THEN t.total_price ELSE 0 END) as money_gathered,
+        SUM(CASE WHEN t.status = 'Pendiente' THEN t.total_price ELSE 0 END) as outstanding_amount,
+        CASE 
+          WHEN SUM(CASE WHEN t.status = 'Pagado' THEN t.quantity ELSE 0 END) > 0 
+          THEN ROUND(SUM(CASE WHEN t.status = 'Pagado' THEN t.total_price ELSE 0 END) / SUM(CASE WHEN t.status = 'Pagado' THEN t.quantity ELSE 0 END), 2)
+          ELSE 0 
+        END as avg_revenue_per_person,
+        MAX(t.created_at) as last_ticket_date,
+        MIN(t.created_at) as first_ticket_date
+      FROM plays p
+      LEFT JOIN tickets t ON p.id = t.play_id
+      WHERE p.id = ?
+      GROUP BY p.id, p.title, p.base_price
+    `).get(playId) as any;
+    
+    if (!result) return null;
+    
+    return {
+      playId,
+      playTitle: result.title,
+      basePrice: result.base_price,
+      totalTicketRecords: result.total_ticket_records,
+      totalPeople: result.total_people,
+      paidTicketRecords: result.paid_ticket_records,
+      paidPeople: result.paid_people,
+      pendingTicketRecords: result.pending_ticket_records,
+      pendingPeople: result.pending_people,
+      paymentRate: result.payment_rate,
+      moneyExpected: result.money_expected,
+      moneyGathered: result.money_gathered,
+      outstandingAmount: result.outstanding_amount,
+      averageRevenuePerPerson: result.avg_revenue_per_person,
+      lastTicketDate: result.last_ticket_date ? new Date(result.last_ticket_date) : null,
+      firstTicketDate: result.first_ticket_date ? new Date(result.first_ticket_date) : null,
+    };
+  }
+
+  // User Management methods
+  async getAllUsers(): Promise<User[]> {
+    const users = sqlite.prepare(`
+      SELECT id, name, email, role, created_at, updated_at
+      FROM users
+      ORDER BY created_at DESC
+    `).all() as any[];
+    
+    return users.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      password: null,
+      googleId: null,
+      role: user.role,
+      createdAt: new Date(user.created_at),
+      updatedAt: new Date(user.updated_at),
+    }));
+  }
+
+  async getUsersByRole(role?: string): Promise<User[]> {
+    if (!role) return this.getAllUsers();
+    
+    const users = sqlite.prepare(`
+      SELECT id, name, email, role, created_at, updated_at
+      FROM users
+      WHERE role = ?
+      ORDER BY created_at DESC
+    `).all(role) as any[];
+    
+    return users.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      password: null,
+      googleId: null,
+      role: user.role,
+      createdAt: new Date(user.created_at),
+      updatedAt: new Date(user.updated_at),
+    }));
+  }
+
+  async getUserEmailList(): Promise<{ id: string; email: string; name: string; role: string; createdAt: string }[]> {
+    const users = sqlite.prepare(`
+      SELECT id, email, name, role, created_at
+      FROM users
+      ORDER BY name ASC
+    `).all() as any[];
+    
+    return users.map(user => ({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      createdAt: user.created_at,
+    }));
+  }
+
+  async getUserStatistics(): Promise<{
+    totalUsers: number;
+    adminCount: number;
+    monitorCount: number;
+    userCount: number;
+    recentUsers: number;
+    activeUsers: number;
+  }> {
+    const result = sqlite.prepare(`
+      SELECT 
+        COUNT(*) as total_users,
+        COUNT(CASE WHEN role = 'ADMIN' THEN 1 END) as admin_count,
+        COUNT(CASE WHEN role = 'MONITOR' THEN 1 END) as monitor_count,
+        COUNT(CASE WHEN role = 'USER' THEN 1 END) as user_count,
+        COUNT(CASE WHEN created_at >= date('now', '-30 days') THEN 1 END) as recent_users,
+        COUNT(CASE WHEN updated_at >= date('now', '-7 days') THEN 1 END) as active_users
+      FROM users
+    `).get() as any;
+    
+    return {
+      totalUsers: result.total_users,
+      adminCount: result.admin_count,
+      monitorCount: result.monitor_count,
+      userCount: result.user_count,
+      recentUsers: result.recent_users,
+      activeUsers: result.active_users,
+    };
+  }
+
   // Gallery methods
   async getGalleryItems(visibility?: string): Promise<GalleryItem[]> {
-    let query = 'SELECT * FROM gallery_items ORDER BY created_at DESC';
+    let query = 'SELECT * FROM gallery_items';
     const params: any[] = [];
     
     if (visibility) {
       query += ' WHERE visibility = ?';
       params.push(visibility);
     }
+    
+    query += ' ORDER BY created_at DESC';
     
     return sqlite.prepare(query).all(...params) as GalleryItem[];
   }

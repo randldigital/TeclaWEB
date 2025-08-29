@@ -8,6 +8,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { 
   FileText, 
   Theater, 
   Users, 
@@ -18,7 +28,8 @@ import {
   Eye, 
   EyeOff,
   Calendar,
-  Mail
+  Mail,
+  BarChart3
 } from "lucide-react";
 import { Post, Play, User, ContactMessage } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
@@ -34,6 +45,8 @@ import { ValidationManagement } from "@/components/admin/validation-management";
 import { ValidationLogs } from "@/components/admin/validation-logs";
 import { ValidationStats } from "@/components/admin/validation-stats";
 import { ShowtimeManagement } from "@/components/admin/showtime-management";
+import { PlayStatisticsModal } from "@/components/play-statistics-modal";
+import { UserManagement } from "@/components/admin/user-management";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 export default function AdminDashboard() {
@@ -47,6 +60,8 @@ export default function AdminDashboard() {
   const [showShowtimeManagement, setShowShowtimeManagement] = useState(false);
   const [selectedPlay, setSelectedPlay] = useState<Play | null>(null);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState<string | null>(null);
+  const [showStatisticsModal, setShowStatisticsModal] = useState<string | null>(null);
 
   // Redirect if not authorized
   if (!user || (user.role !== "ADMIN" && user.role !== "MONITOR")) {
@@ -188,7 +203,7 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview" className="flex items-center space-x-2" data-testid="tab-overview">
               <Settings className="w-4 h-4" />
               <span>Resumen</span>
@@ -201,6 +216,12 @@ export default function AdminDashboard() {
               <Theater className="w-4 h-4" />
               <span>Obras</span>
             </TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="users" className="flex items-center space-x-2" data-testid="tab-users">
+                <Users className="w-4 h-4" />
+                <span>Usuarios</span>
+              </TabsTrigger>
+            )}
             {isAdmin && (
               <TabsTrigger value="validation" className="flex items-center space-x-2" data-testid="tab-validation">
                 <Settings className="w-4 h-4" />
@@ -533,9 +554,18 @@ export default function AdminDashboard() {
                             <Calendar className="w-4 h-4" />
                           </Button>
                           <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                            data-testid={`button-statistics-${play.id}`}
+                            onClick={() => setShowStatisticsModal(play.id)}
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                          </Button>
+                          <Button 
                             variant="destructive" 
                             size="sm"
-                            onClick={() => deletePlayMutation.mutate(play.id)}
+                            onClick={() => setShowDeleteConfirmation(play.id)}
                             disabled={deletePlayMutation.isPending}
                             data-testid={`button-delete-play-${play.id}`}
                           >
@@ -660,6 +690,17 @@ export default function AdminDashboard() {
             </TabsContent>
           )}
 
+          {/* Users Tab (Admin only) */}
+          {isAdmin && (
+            <TabsContent value="users" className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-claret-blue">Gestión de Usuarios</h2>
+              </div>
+              
+              <UserManagement />
+            </TabsContent>
+          )}
+
           {/* Validation Tab (Admin only) */}
           {isAdmin && (
             <TabsContent value="validation" className="space-y-6">
@@ -709,6 +750,52 @@ export default function AdminDashboard() {
             setShowShowtimeManagement(false);
             setSelectedPlay(null);
           }}
+        />
+      )}
+      
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!showDeleteConfirmation} onOpenChange={() => setShowDeleteConfirmation(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar obra?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción eliminará permanentemente la obra y todos sus datos relacionados:
+              <br />
+              • Todas las entradas reservadas para esta obra
+              <br />
+              • Todos los showtimes adicionales
+              <br />
+              • La imagen del cartel (si existe)
+              <br />
+              <br />
+              <strong>Esta acción no se puede deshacer.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowDeleteConfirmation(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (showDeleteConfirmation) {
+                  deletePlayMutation.mutate(showDeleteConfirmation);
+                  setShowDeleteConfirmation(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Eliminar permanentemente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Play Statistics Modal */}
+      {showStatisticsModal && (
+        <PlayStatisticsModal
+          playId={showStatisticsModal}
+          isOpen={!!showStatisticsModal}
+          onClose={() => setShowStatisticsModal(null)}
         />
       )}
       

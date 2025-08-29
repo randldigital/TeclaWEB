@@ -177,6 +177,10 @@ export class MockStorage implements IStorage {
         status: "Pendiente",
         paidAt: null,
         createdAt: new Date(),
+        quantity: 1,
+        adultTickets: 1,
+        childTickets: 0,
+        totalPrice: 15.0,
       },
       {
         id: "TICKET-1756215517380-zozlc79fx", // The QR code you scanned
@@ -187,6 +191,10 @@ export class MockStorage implements IStorage {
         status: "Pagado",
         paidAt: new Date(),
         createdAt: new Date(),
+        quantity: 1,
+        adultTickets: 1,
+        childTickets: 0,
+        totalPrice: 15.0,
       },
       {
         id: "TICKET-1756214993404-abc123def",
@@ -197,6 +205,10 @@ export class MockStorage implements IStorage {
         status: "Pendiente",
         paidAt: null,
         createdAt: new Date(),
+        quantity: 1,
+        adultTickets: 1,
+        childTickets: 0,
+        totalPrice: 15.0,
       },
       {
         id: "TICKET-1756287933457-jy598algs", // Recently downloaded ticket
@@ -207,6 +219,10 @@ export class MockStorage implements IStorage {
         status: "Pendiente",
         paidAt: null,
         createdAt: new Date(),
+        quantity: 1,
+        adultTickets: 1,
+        childTickets: 0,
+        totalPrice: 15.0,
       }
     ];
     
@@ -348,7 +364,12 @@ export class MockStorage implements IStorage {
     return this.tickets.find(ticket => ticket.id === id);
   }
 
-  async createTicket(insertTicket: InsertTicket): Promise<Ticket> {
+  async createTicket(insertTicket: InsertTicket & { 
+    quantity?: number;
+    adultTickets?: number;
+    childTickets?: number;
+    totalPrice?: number;
+  }): Promise<Ticket> {
     const ticket: Ticket = {
       id: nanoid(),
       userId: insertTicket.userId,
@@ -358,6 +379,10 @@ export class MockStorage implements IStorage {
       status: insertTicket.status || "Pendiente",
       paidAt: null,
       createdAt: new Date(),
+      quantity: insertTicket.quantity || 1,
+      adultTickets: insertTicket.adultTickets || 1,
+      childTickets: insertTicket.childTickets || 0,
+      totalPrice: insertTicket.totalPrice || 0.0,
     };
     this.tickets.push(ticket);
     return ticket;

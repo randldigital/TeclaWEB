@@ -26,6 +26,12 @@ interface TicketDetails {
   userName: string;
   status: 'Pendiente' | 'Pagado';
   paidAt?: string;
+  isGroupTicket?: boolean;
+  quantity?: number;
+  adultTickets?: number;
+  childTickets?: number;
+  totalPrice?: number;
+  basePrice?: number;
 }
 
 interface ValidationLog {
@@ -65,8 +71,8 @@ export default function ValidacionPage() {
 
   // Validate ticket ID format
   const isValidTicketId = (ticketId: string): boolean => {
-    // Ticket ID format: TICKET-timestamp-randomstring
-    const ticketPattern = /^TICKET-\d{13}-[a-z0-9]+$/;
+    // Ticket ID format: TICKET-timestamp-randomstring or GROUP-timestamp-randomstring
+    const ticketPattern = /^(TICKET|GROUP)-\d{13}-[a-z0-9]+$/;
     return ticketPattern.test(ticketId);
   };
 
@@ -1118,13 +1124,31 @@ export default function ValidacionPage() {
                   </div>
                   <div>
                     <span className="font-semibold">Precio:</span>
-                    <p className="text-muted-foreground">€{scannedTicket.price.toFixed(2)}</p>
+                    <p className="text-muted-foreground">
+                      {scannedTicket.isGroupTicket 
+                        ? `€${scannedTicket.totalPrice?.toFixed(2)} (Grupo)`
+                        : `€${scannedTicket.price.toFixed(2)}`
+                      }
+                    </p>
                   </div>
                   <div>
                     <span className="font-semibold">Asiento:</span>
                     <p className="text-muted-foreground">{scannedTicket.seatNumber || 'General'}</p>
                   </div>
                 </div>
+
+                {/* Group ticket information */}
+                {scannedTicket.isGroupTicket && (
+                  <div className="pt-2 border-t bg-blue-50 p-3 rounded-lg">
+                    <span className="font-semibold text-blue-800">🎭 Entrada de Grupo:</span>
+                    <div className="text-sm text-blue-700 mt-1">
+                      <p>• Total de entradas: {scannedTicket.quantity}</p>
+                      <p>• Adultos: {scannedTicket.adultTickets}</p>
+                      <p>• Niños: {scannedTicket.childTickets}</p>
+                      <p>• Precio base: €{scannedTicket.basePrice?.toFixed(2)}</p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="pt-2 border-t">
                   <span className="font-semibold">Asistente:</span>

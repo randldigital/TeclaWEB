@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, real, json, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, real, json, pgEnum, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -53,6 +53,11 @@ export const tickets = pgTable("tickets", {
   status: text("status").default("Pendiente").notNull(),
   paidAt: timestamp("paid_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  // Group booking fields
+  quantity: integer("quantity").default(1).notNull(),
+  adultTickets: integer("adult_tickets").default(1).notNull(),
+  childTickets: integer("child_tickets").default(0).notNull(),
+  totalPrice: real("total_price").default(0.0).notNull(),
 });
 
 export const galleryItems = pgTable("gallery_items", {
@@ -159,6 +164,10 @@ export const updatePlaySchema = baseInsertPlaySchema.partial().extend({
 export const insertTicketSchema = createInsertSchema(tickets).omit({
   id: true,
   createdAt: true,
+  quantity: true,
+  adultTickets: true,
+  childTickets: true,
+  totalPrice: true,
 });
 
 export const insertGalleryItemSchema = createInsertSchema(galleryItems).omit({

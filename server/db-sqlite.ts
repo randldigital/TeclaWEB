@@ -54,6 +54,10 @@ sqlite.exec(`
     status TEXT DEFAULT 'Pendiente' NOT NULL,
     paid_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    quantity INTEGER DEFAULT 1 NOT NULL,
+    adult_tickets INTEGER DEFAULT 1 NOT NULL,
+    child_tickets INTEGER DEFAULT 0 NOT NULL,
+    total_price REAL DEFAULT 0.0 NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (play_id) REFERENCES plays(id)
   );

@@ -10,7 +10,8 @@ import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Theater } from "lucide-react";
+import { Theater, Image, X } from "lucide-react";
+import { FileUpload } from "@/components/file-upload";
 
 const createPlaySchema = z.object({
   title: z.string().min(1, "El título es requerido"),
@@ -18,6 +19,7 @@ const createPlaySchema = z.object({
   dateTime: z.string().min(1, "La fecha y hora son requeridas"),
   basePrice: z.number().min(0, "El precio debe ser mayor o igual a 0"),
   genre: z.string().optional(),
+  posterUrl: z.string().optional(),
 });
 
 type CreatePlayForm = z.infer<typeof createPlaySchema>;
@@ -30,6 +32,7 @@ interface CreatePlayFormProps {
 export function CreatePlayForm({ isOpen, onClose }: CreatePlayFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [posterFile, setPosterFile] = useState<any>(null);
 
   const form = useForm<CreatePlayForm>({
     resolver: zodResolver(createPlaySchema),
@@ -39,6 +42,7 @@ export function CreatePlayForm({ isOpen, onClose }: CreatePlayFormProps) {
       dateTime: "",
       basePrice: 15,
       genre: "",
+      posterUrl: "",
     },
   });
 
@@ -54,6 +58,7 @@ export function CreatePlayForm({ isOpen, onClose }: CreatePlayFormProps) {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/plays"] });
       form.reset();
+      setPosterFile(null);
       onClose();
     },
     onError: (error: Error) => {
@@ -76,7 +81,26 @@ export function CreatePlayForm({ isOpen, onClose }: CreatePlayFormProps) {
 
   const handleClose = () => {
     form.reset();
+    setPosterFile(null);
     onClose();
+  };
+
+  const handlePosterUpload = (fileData: any) => {
+    setPosterFile(fileData);
+    form.setValue("posterUrl", fileData.url);
+  };
+
+  const handlePosterError = (error: string) => {
+    toast({
+      title: "Error al subir imagen",
+      description: error,
+      variant: "destructive",
+    });
+  };
+
+  const removePoster = () => {
+    setPosterFile(null);
+    form.setValue("posterUrl", "");
   };
 
   return (
@@ -157,6 +181,50 @@ export function CreatePlayForm({ isOpen, onClose }: CreatePlayFormProps) {
             {form.formState.errors.genre && (
               <p className="text-sm text-claret-red">{form.formState.errors.genre.message}</p>
             )}
+          </div>
+
+          {/* Poster Upload Section */}
+          <div className="space-y-2">
+            <Label>Cartel de la Obra</Label>
+            <div className="space-y-4">
+              {posterFile ? (
+                <div className="relative">
+                  <img
+                    src={posterFile.url}
+                    alt="Vista previa del cartel"
+                    className="w-full h-64 object-cover rounded-lg border-2 border-gray-200"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={removePoster}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                  <div className="text-center">
+                    <Image className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-sm text-gray-600 mb-4">
+                      Arrastra una imagen aquí o haz clic para seleccionar
+                    </p>
+                    <p className="text-xs text-gray-500 mb-4">
+                      Formatos: JPG, PNG, WebP • Máximo: 5MB • Recomendado: 800x1200px
+                    </p>
+                    <FileUpload
+                      onUploadSuccess={handlePosterUpload}
+                      onUploadError={handlePosterError}
+                      accept="image"
+                      maxSize={5 * 1024 * 1024}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex justify-end space-x-2">
