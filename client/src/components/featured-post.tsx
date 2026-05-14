@@ -46,7 +46,7 @@ export function FeaturedPost({ post }: FeaturedPostProps) {
           <img 
             src={post.imageUrl} 
             alt={post.title}
-            className="w-full h-64 md:h-80 object-cover"
+            className="w-full h-64 md:h-80 object-contain bg-gray-100"
           />
           <div className="absolute top-4 left-4">
             <Badge className={`${getStatusColor(post.status)} text-sm font-medium`}>

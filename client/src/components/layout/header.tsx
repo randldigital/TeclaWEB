@@ -29,19 +29,19 @@ export function Header() {
     <>
       <header className="bg-white shadow-sm border-b-2 border-claret-yellow sticky top-0 z-50">
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex justify-between items-center h-16 min-w-0 gap-2">
             {/* Logo */}
-                            <Link href="/" className="flex items-center space-x-3" data-testid="link-home">
-                  <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
-                    <img 
-                      src="/logo-color.png" 
-                      alt="TECLA Logo" 
-                      className="w-18 h-18"
-                    />
-                  </div>
-              <div>
-                <h1 className="text-lg font-bold text-claret-blue">Escuela de Teatro TECLA</h1>
-                <p className="text-xs text-gray-600">Sevilla</p>
+            <Link href="/" className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-shrink" data-testid="link-home">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-lg flex items-center justify-center flex-shrink-0">
+                <img 
+                  src="/logo-color.png" 
+                  alt="TECLA Logo" 
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="min-w-0 flex-shrink">
+                <h1 className="text-sm sm:text-lg font-bold text-claret-blue truncate">Escuela de Teatro TECLA</h1>
+                <p className="text-xs text-gray-600 hidden sm:block">Sevilla</p>
               </div>
             </Link>
 
@@ -99,10 +99,11 @@ export function Header() {
               ) : (
                 <Button
                   onClick={() => setIsLoginModalOpen(true)}
-                  className="bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy font-medium"
+                  className="bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy font-medium text-xs sm:text-sm px-2 sm:px-4 whitespace-nowrap"
                   data-testid="button-open-login"
                 >
-                  Iniciar Sesión
+                  <span className="hidden sm:inline">Iniciar Sesión</span>
+                  <span className="sm:hidden">Entrar</span>
                 </Button>
               )}
 
@@ -113,7 +114,7 @@ export function Header() {
                     <Menu className="h-6 w-6" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="right" className="w-64">
+                <SheetContent side="right" className="w-64 sm:w-80 md:w-96">
                   <div className="flex flex-col space-y-4 mt-8">
                     {navigation.map((item) => (
                       <Link

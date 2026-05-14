@@ -25,6 +25,7 @@ export const posts = pgTable("posts", {
   content: text("content").notNull(),
   excerpt: text("excerpt"),
   imageUrl: text("image_url"),
+  imageOrientation: text("image_orientation"), // 'landscape', 'portrait', 'square'
   status: statusEnum("status").default("PUBLISHED").notNull(),
   createdBy: varchar("created_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -36,6 +37,7 @@ export const plays = pgTable("plays", {
   title: text("title").notNull(),
   description: text("description").notNull(),
   posterUrl: text("poster_url"),
+  posterOrientation: text("poster_orientation"), // 'landscape', 'portrait', 'square'
   dateTime: timestamp("date_time").notNull(),
   basePrice: real("base_price").default(5.0).notNull(),
   genre: text("genre"),
@@ -67,6 +69,24 @@ export const galleryItems = pgTable("gallery_items", {
   imageUrl: text("image_url").notNull(),
   type: text("type").default("IMAGE").notNull(), // IMAGE, VIDEO
   visibility: visibilityEnum("visibility").default("PUBLIC").notNull(),
+  createdBy: varchar("created_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const playComments = pgTable("play_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playId: varchar("play_id").notNull().references(() => plays.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  status: text("status").default("pending").notNull(), // pending | approved
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const playMemoryPhotos = pgTable("play_memory_photos", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  playId: varchar("play_id").notNull().references(() => plays.id),
+  imageUrl: text("image_url").notNull(),
+  displayOrder: integer("display_order").default(0).notNull(),
   createdBy: varchar("created_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -180,6 +200,17 @@ export const insertContactMessageSchema = createInsertSchema(contactMessages).om
   createdAt: true,
 });
 
+export const insertPlayCommentSchema = createInsertSchema(playComments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPlayMemoryPhotoSchema = createInsertSchema(playMemoryPhotos).omit({
+  id: true,
+  createdAt: true,
+  displayOrder: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -193,3 +224,7 @@ export type GalleryItem = typeof galleryItems.$inferSelect;
 export type InsertGalleryItem = z.infer<typeof insertGalleryItemSchema>;
 export type ContactMessage = typeof contactMessages.$inferSelect;
 export type InsertContactMessage = z.infer<typeof insertContactMessageSchema>;
+export type PlayComment = typeof playComments.$inferSelect;
+export type InsertPlayComment = z.infer<typeof insertPlayCommentSchema>;
+export type PlayMemoryPhoto = typeof playMemoryPhotos.$inferSelect;
+export type InsertPlayMemoryPhoto = z.infer<typeof insertPlayMemoryPhotoSchema>;

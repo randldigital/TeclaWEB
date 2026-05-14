@@ -9,7 +9,8 @@ const sqlite = new Database('teclaweb.db');
 import { 
   type User, type InsertUser, type Post, type InsertPost,
   type Play, type InsertPlay, type Ticket, type InsertTicket,
-  type GalleryItem, type InsertGalleryItem, type ContactMessage, type InsertContactMessage
+  type GalleryItem, type InsertGalleryItem, type ContactMessage, type InsertContactMessage,
+  type PlayComment, type InsertPlayComment, type PlayMemoryPhoto, type InsertPlayMemoryPhoto
 } from "@shared/schema";
 
 // Memory-based session store for simplicity
@@ -62,6 +63,16 @@ export interface IStorage {
   getPlaysGrouped(): Promise<{ parentPlay: Play; showtimes: Play[] }[]>;
   getShowtimesForPlay(parentPlayId: string): Promise<Play[]>;
   createShowtime(play: InsertPlay, parentPlayId: string): Promise<Play>;
+
+  // Past play memory
+  getPlayComments(playId: string, includePending?: boolean): Promise<(PlayComment & { userName: string })[]>;
+  createPlayComment(comment: InsertPlayComment): Promise<PlayComment>;
+  approvePlayComment(commentId: string): Promise<PlayComment | undefined>;
+  rejectPlayComment(commentId: string): Promise<boolean>;
+  getPlayMemoryPhotos(playId: string): Promise<PlayMemoryPhoto[]>;
+  createPlayMemoryPhoto(photo: InsertPlayMemoryPhoto): Promise<PlayMemoryPhoto>;
+  reorderPlayMemoryPhotos(playId: string, photoIds: string[]): Promise<PlayMemoryPhoto[]>;
+  deletePlayMemoryPhoto(photoId: string): Promise<boolean>;
   
   // Tickets
   getTickets(userId?: string, playId?: string): Promise<Ticket[]>;
@@ -112,6 +123,37 @@ export class DatabaseStorage implements IStorage {
 
   constructor() {
     this.sessionStore = new MemorySessionStore();
+    this.ensureMemoryTables();
+  }
+
+  private ensureMemoryTables(): void {
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS play_comments (
+        id TEXT PRIMARY KEY,
+        play_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        content TEXT NOT NULL,
+        status TEXT DEFAULT 'pending' NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        FOREIGN KEY (play_id) REFERENCES plays(id),
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS play_memory_photos (
+        id TEXT PRIMARY KEY,
+        play_id TEXT NOT NULL,
+        image_url TEXT NOT NULL,
+        display_order INTEGER DEFAULT 0 NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+        FOREIGN KEY (play_id) REFERENCES plays(id),
+        FOREIGN KEY (created_by) REFERENCES users(id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_play_comments_play_id ON play_comments (play_id);
+      CREATE INDEX IF NOT EXISTS idx_play_comments_status ON play_comments (status);
+      CREATE INDEX IF NOT EXISTS idx_play_memory_photos_play_id ON play_memory_photos (play_id);
+    `);
   }
 
   // User methods
@@ -210,12 +252,37 @@ export class DatabaseStorage implements IStorage {
     query += ' ORDER BY created_at DESC LIMIT ?';
     params.push(limit);
     
-    return sqlite.prepare(query).all(...params) as Post[];
+    const results = sqlite.prepare(query).all(...params) as any[];
+    return results.map(result => ({
+      id: result.id,
+      title: result.title,
+      content: result.content,
+      excerpt: result.excerpt,
+      imageUrl: result.image_url, // Transform image_url to imageUrl
+      imageOrientation: result.image_orientation, // Transform image_orientation to imageOrientation
+      status: result.status,
+      createdBy: result.created_by,
+      createdAt: new Date(result.created_at),
+      updatedAt: new Date(result.updated_at),
+    }));
   }
 
   async getPost(id: string): Promise<Post | undefined> {
-    const result = sqlite.prepare('SELECT * FROM posts WHERE id = ?').get(id);
-    return result as Post | undefined;
+    const result = sqlite.prepare('SELECT * FROM posts WHERE id = ?').get(id) as any;
+    if (!result) return undefined;
+    
+    return {
+      id: result.id,
+      title: result.title,
+      content: result.content,
+      excerpt: result.excerpt,
+      imageUrl: result.image_url, // Transform image_url to imageUrl
+      imageOrientation: result.image_orientation, // Transform image_orientation to imageOrientation
+      status: result.status,
+      createdBy: result.created_by,
+      createdAt: new Date(result.created_at),
+      updatedAt: new Date(result.updated_at),
+    };
   }
 
   async createPost(insertPost: InsertPost): Promise<Post> {
@@ -225,6 +292,7 @@ export class DatabaseStorage implements IStorage {
       content: insertPost.content,
       excerpt: insertPost.excerpt || null,
       imageUrl: insertPost.imageUrl || null,
+      imageOrientation: insertPost.imageOrientation || null,
       status: insertPost.status || "PUBLISHED",
       createdBy: insertPost.createdBy,
       createdAt: new Date(),
@@ -232,9 +300,9 @@ export class DatabaseStorage implements IStorage {
     };
     
     sqlite.prepare(`
-      INSERT INTO posts (id, title, content, excerpt, image_url, status, created_by, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(post.id, post.title, post.content, post.excerpt, post.imageUrl, post.status, post.createdBy, post.createdAt.toISOString(), post.updatedAt.toISOString());
+      INSERT INTO posts (id, title, content, excerpt, image_url, image_orientation, status, created_by, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(post.id, post.title, post.content, post.excerpt, post.imageUrl, post.imageOrientation, post.status, post.createdBy, post.createdAt.toISOString(), post.updatedAt.toISOString());
     
     return post;
   }
@@ -269,6 +337,7 @@ export class DatabaseStorage implements IStorage {
       title: result.title,
       description: result.description,
       posterUrl: result.poster_url,
+      posterOrientation: result.poster_orientation,
       dateTime: new Date(result.date_time),
       basePrice: result.base_price,
       genre: result.genre,
@@ -287,6 +356,7 @@ export class DatabaseStorage implements IStorage {
       title: result.title,
       description: result.description,
       posterUrl: result.poster_url,
+      posterOrientation: result.poster_orientation,
       dateTime: new Date(result.date_time),
       basePrice: result.base_price,
       genre: result.genre,
@@ -302,6 +372,7 @@ export class DatabaseStorage implements IStorage {
       title: insertPlay.title,
       description: insertPlay.description,
       posterUrl: insertPlay.posterUrl || null,
+      posterOrientation: insertPlay.posterOrientation || null,
       dateTime: insertPlay.dateTime,
       basePrice: insertPlay.basePrice || 5.0,
       genre: insertPlay.genre || null,
@@ -312,13 +383,14 @@ export class DatabaseStorage implements IStorage {
     
     // Insert the play with parent_play_id set to itself and showtime_order = 0
     sqlite.prepare(`
-      INSERT INTO plays (id, title, description, poster_url, date_time, base_price, genre, created_by, created_at, updated_at, parent_play_id, showtime_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO plays (id, title, description, poster_url, poster_orientation, date_time, base_price, genre, created_by, created_at, updated_at, parent_play_id, showtime_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       play.id, 
       play.title, 
       play.description, 
       play.posterUrl, 
+      play.posterOrientation,
       play.dateTime.toISOString(), 
       play.basePrice, 
       play.genre, 
@@ -368,19 +440,23 @@ export class DatabaseStorage implements IStorage {
       // 1. Get play info for image cleanup
       const play = await this.getPlay(id);
       
-      // 2. Delete all related tickets first (foreign key constraint)
+      // 2. Delete related memory comments/photos
+      sqlite.prepare('DELETE FROM play_comments WHERE play_id = ?').run(id);
+      sqlite.prepare('DELETE FROM play_memory_photos WHERE play_id = ?').run(id);
+
+      // 3. Delete all related tickets first (foreign key constraint)
       const ticketsDeleted = sqlite.prepare('DELETE FROM tickets WHERE play_id = ?').run(id);
       console.log(`Deleted ${ticketsDeleted.changes} tickets for play ${id}`);
       
-      // 3. Delete all showtimes (plays with this parent_play_id)
+      // 4. Delete all showtimes (plays with this parent_play_id)
       const showtimesDeleted = sqlite.prepare('DELETE FROM plays WHERE parent_play_id = ? AND id != ?').run(id, id);
       console.log(`Deleted ${showtimesDeleted.changes} showtimes for play ${id}`);
       
-      // 4. Delete the main play
+      // 5. Delete the main play
       const playDeleted = sqlite.prepare('DELETE FROM plays WHERE id = ?').run(id);
       console.log(`Deleted main play ${id}`);
       
-      // 5. Clean up poster image if exists
+      // 6. Clean up poster image if exists
       if (play?.posterUrl) {
         const filename = play.posterUrl.split('/').pop();
         if (filename) {
@@ -427,7 +503,7 @@ export class DatabaseStorage implements IStorage {
       ORDER BY parent_play_id, showtime_order, date_time
     `).all() as any[];
     
-    const grouped: { [key: string]: Play[] } = {};
+    const grouped: { [key: string]: { play: Play; showtimeOrder: number | null; parentPlayId: string | null }[] } = {};
     
     results.forEach(result => {
       const play: Play = {
@@ -435,6 +511,7 @@ export class DatabaseStorage implements IStorage {
         title: result.title,
         description: result.description,
         posterUrl: result.poster_url,
+        posterOrientation: result.poster_orientation,
         dateTime: new Date(result.date_time),
         basePrice: result.base_price,
         genre: result.genre,
@@ -447,29 +524,92 @@ export class DatabaseStorage implements IStorage {
       if (!grouped[parentId]) {
         grouped[parentId] = [];
       }
-      grouped[parentId].push(play);
+      grouped[parentId].push({
+        play,
+        showtimeOrder: result.showtime_order ?? null,
+        parentPlayId: result.parent_play_id ?? null,
+      });
     });
     
-    // Convert to array format with parent play as first showtime
-    return Object.values(grouped).map(showtimes => ({
-      parentPlay: showtimes[0], // First showtime becomes the parent
-      showtimes: showtimes.sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime())
-    }));
+    const now = new Date();
+    
+    // Convert groups to array, preserving chronological showtimes and stable canonical parent identity.
+    const groupedArray = Object.entries(grouped).map(([groupParentId, entries]) => {
+      const sortedEntries = [...entries].sort(
+        (a, b) => a.play.dateTime.getTime() - b.play.dateTime.getTime()
+      );
+      const canonicalEntry =
+        entries.find((entry) => entry.showtimeOrder === 0) ||
+        entries.find((entry) => entry.play.id === groupParentId) ||
+        entries.find((entry) => entry.play.id === entry.parentPlayId) ||
+        sortedEntries[0];
+
+      return {
+        parentPlay: canonicalEntry.play,
+        showtimes: sortedEntries.map((entry) => entry.play),
+      };
+    });
+    
+    // Sort groups by the closest upcoming date/time (or latest past date if no future dates)
+    groupedArray.sort((a, b) => {
+      // Find the earliest upcoming showtime for each group
+      const aUpcoming = a.showtimes.find(s => s.dateTime.getTime() > now.getTime());
+      const bUpcoming = b.showtimes.find(s => s.dateTime.getTime() > now.getTime());
+      
+      // If both have upcoming dates, sort by earliest upcoming
+      if (aUpcoming && bUpcoming) {
+        return aUpcoming.dateTime.getTime() - bUpcoming.dateTime.getTime();
+      }
+      
+      // If only one has upcoming dates, prioritize it
+      if (aUpcoming && !bUpcoming) {
+        return -1;
+      }
+      if (!aUpcoming && bUpcoming) {
+        return 1;
+      }
+      
+      // If neither has upcoming dates, sort by latest past date
+      const aLatest = a.showtimes[a.showtimes.length - 1];
+      const bLatest = b.showtimes[b.showtimes.length - 1];
+      return bLatest.dateTime.getTime() - aLatest.dateTime.getTime();
+    });
+    
+    return groupedArray;
   }
 
   async getShowtimesForPlay(parentPlayId: string): Promise<Play[]> {
-    // Get the parent play and all its showtimes, including the parent itself
+    // Resolve canonical parent ID so child showtime IDs return the full group.
+    const requestedPlay = sqlite.prepare(`
+      SELECT id, parent_play_id, showtime_order
+      FROM plays
+      WHERE id = ?
+    `).get(parentPlayId) as any;
+
+    if (!requestedPlay) {
+      return [];
+    }
+
+    const canonicalParentId =
+      requestedPlay.showtime_order === 0 ||
+      !requestedPlay.parent_play_id ||
+      requestedPlay.id === requestedPlay.parent_play_id
+        ? requestedPlay.id
+        : requestedPlay.parent_play_id;
+
+    // Get the parent play and all its showtimes, including the parent itself.
     const results = sqlite.prepare(`
       SELECT * FROM plays 
       WHERE parent_play_id = ? OR id = ?
       ORDER BY showtime_order, date_time
-    `).all(parentPlayId, parentPlayId) as any[];
+    `).all(canonicalParentId, canonicalParentId) as any[];
     
     return results.map(result => ({
       id: result.id,
       title: result.title,
       description: result.description,
       posterUrl: result.poster_url,
+      posterOrientation: result.poster_orientation,
       dateTime: new Date(result.date_time),
       basePrice: result.base_price,
       genre: result.genre,
@@ -494,6 +634,7 @@ export class DatabaseStorage implements IStorage {
       title: play.title,
       description: play.description,
       posterUrl: play.posterUrl || null,
+      posterOrientation: play.posterOrientation || null,
       dateTime: play.dateTime,
       basePrice: play.basePrice || 5.0,
       genre: play.genre || null,
@@ -503,24 +644,184 @@ export class DatabaseStorage implements IStorage {
     };
     
     sqlite.prepare(`
-      INSERT INTO plays (id, title, description, poster_url, date_time, base_price, genre, created_by, created_at, updated_at, parent_play_id, showtime_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO plays (id, title, description, poster_url, poster_orientation, date_time, base_price, genre, created_by, created_at, updated_at, parent_play_id, showtime_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       newShowtime.id, 
       newShowtime.title, 
       newShowtime.description, 
       newShowtime.posterUrl, 
+      newShowtime.posterOrientation,
       newShowtime.dateTime.toISOString(), 
       newShowtime.basePrice, 
       newShowtime.genre, 
       newShowtime.createdBy, 
       newShowtime.createdAt.toISOString(), 
       newShowtime.updatedAt.toISOString(),
-      parentPlayId,
+      parentPlayId, 
       nextOrder
     );
     
     return newShowtime;
+  }
+
+  // Past play memory methods
+  async getPlayComments(playId: string, includePending: boolean = false): Promise<(PlayComment & { userName: string })[]> {
+    const statusFilter = includePending ? '' : `AND c.status = 'approved'`;
+    const results = sqlite.prepare(`
+      SELECT c.*, u.name as user_name
+      FROM play_comments c
+      INNER JOIN users u ON u.id = c.user_id
+      WHERE c.play_id = ?
+      ${statusFilter}
+      ORDER BY c.created_at DESC
+    `).all(playId) as any[];
+
+    return results.map((result) => ({
+      id: result.id,
+      playId: result.play_id,
+      userId: result.user_id,
+      content: result.content,
+      status: result.status,
+      createdAt: new Date(result.created_at),
+      userName: result.user_name,
+    }));
+  }
+
+  async createPlayComment(insertComment: InsertPlayComment): Promise<PlayComment> {
+    const comment: PlayComment = {
+      id: nanoid(),
+      playId: insertComment.playId,
+      userId: insertComment.userId,
+      content: insertComment.content,
+      status: insertComment.status ?? "pending",
+      createdAt: new Date(),
+    };
+
+    sqlite.prepare(`
+      INSERT INTO play_comments (id, play_id, user_id, content, status, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      comment.id,
+      comment.playId,
+      comment.userId,
+      comment.content,
+      comment.status,
+      comment.createdAt.toISOString(),
+    );
+
+    return comment;
+  }
+
+  async approvePlayComment(commentId: string): Promise<PlayComment | undefined> {
+    const result = sqlite.prepare(`
+      UPDATE play_comments
+      SET status = 'approved'
+      WHERE id = ?
+    `).run(commentId);
+
+    if (result.changes === 0) {
+      return undefined;
+    }
+
+    const row = sqlite.prepare(`SELECT * FROM play_comments WHERE id = ?`).get(commentId) as any;
+    if (!row) {
+      return undefined;
+    }
+
+    return {
+      id: row.id,
+      playId: row.play_id,
+      userId: row.user_id,
+      content: row.content,
+      status: row.status,
+      createdAt: new Date(row.created_at),
+    };
+  }
+
+  async rejectPlayComment(commentId: string): Promise<boolean> {
+    const result = sqlite.prepare(`DELETE FROM play_comments WHERE id = ?`).run(commentId);
+    return result.changes > 0;
+  }
+
+  async getPlayMemoryPhotos(playId: string): Promise<PlayMemoryPhoto[]> {
+    const results = sqlite.prepare(`
+      SELECT * FROM play_memory_photos
+      WHERE play_id = ?
+      ORDER BY display_order ASC, created_at ASC
+    `).all(playId) as any[];
+
+    return results.map((result) => ({
+      id: result.id,
+      playId: result.play_id,
+      imageUrl: result.image_url,
+      displayOrder: result.display_order,
+      createdBy: result.created_by,
+      createdAt: new Date(result.created_at),
+    }));
+  }
+
+  async createPlayMemoryPhoto(insertPhoto: InsertPlayMemoryPhoto): Promise<PlayMemoryPhoto> {
+    const countResult = sqlite.prepare(`
+      SELECT COUNT(*) as count FROM play_memory_photos WHERE play_id = ?
+    `).get(insertPhoto.playId) as any;
+
+    if ((countResult?.count ?? 0) >= 3) {
+      throw new Error("Solo se permiten hasta 3 fotos por obra");
+    }
+
+    const nextOrderResult = sqlite.prepare(`
+      SELECT COALESCE(MAX(display_order), -1) as max_order
+      FROM play_memory_photos
+      WHERE play_id = ?
+    `).get(insertPhoto.playId) as any;
+
+    const photo: PlayMemoryPhoto = {
+      id: nanoid(),
+      playId: insertPhoto.playId,
+      imageUrl: insertPhoto.imageUrl,
+      displayOrder: (nextOrderResult?.max_order ?? -1) + 1,
+      createdBy: insertPhoto.createdBy,
+      createdAt: new Date(),
+    };
+
+    sqlite.prepare(`
+      INSERT INTO play_memory_photos (id, play_id, image_url, display_order, created_by, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      photo.id,
+      photo.playId,
+      photo.imageUrl,
+      photo.displayOrder,
+      photo.createdBy,
+      photo.createdAt.toISOString(),
+    );
+
+    return photo;
+  }
+
+  async reorderPlayMemoryPhotos(playId: string, photoIds: string[]): Promise<PlayMemoryPhoto[]> {
+    sqlite.prepare('BEGIN TRANSACTION').run();
+    try {
+      photoIds.slice(0, 3).forEach((photoId, index) => {
+        sqlite.prepare(`
+          UPDATE play_memory_photos
+          SET display_order = ?
+          WHERE id = ? AND play_id = ?
+        `).run(index, photoId, playId);
+      });
+      sqlite.prepare('COMMIT').run();
+    } catch (error) {
+      sqlite.prepare('ROLLBACK').run();
+      throw error;
+    }
+
+    return this.getPlayMemoryPhotos(playId);
+  }
+
+  async deletePlayMemoryPhoto(photoId: string): Promise<boolean> {
+    const result = sqlite.prepare(`DELETE FROM play_memory_photos WHERE id = ?`).run(photoId);
+    return result.changes > 0;
   }
 
   // Ticket methods

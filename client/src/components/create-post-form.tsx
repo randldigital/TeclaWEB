@@ -11,12 +11,14 @@ import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { FileText } from "lucide-react";
+import { FileText, Image, X } from "lucide-react";
+import { FileUpload } from "@/components/file-upload";
 
 const createPostSchema = z.object({
   title: z.string().min(1, "El título es requerido"),
   content: z.string().min(1, "El contenido es requerido"),
   excerpt: z.string().optional(),
+  imageUrl: z.string().optional(),
   status: z.enum(["PUBLISHED", "DRAFT", "HIDDEN"]).default("DRAFT"),
 });
 
@@ -30,6 +32,7 @@ interface CreatePostFormProps {
 export function CreatePostForm({ isOpen, onClose }: CreatePostFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [uploadedImage, setUploadedImage] = useState<{ url: string; filename: string } | null>(null);
 
   const form = useForm<CreatePostForm>({
     resolver: zodResolver(createPostSchema),
@@ -37,6 +40,7 @@ export function CreatePostForm({ isOpen, onClose }: CreatePostFormProps) {
       title: "",
       content: "",
       excerpt: "",
+      imageUrl: "",
       status: "DRAFT",
     },
   });
@@ -70,7 +74,26 @@ export function CreatePostForm({ isOpen, onClose }: CreatePostFormProps) {
 
   const handleClose = () => {
     form.reset();
+    setUploadedImage(null);
     onClose();
+  };
+
+  const handleImageUpload = (fileData: any) => {
+    setUploadedImage({ url: fileData.url, filename: fileData.filename });
+    form.setValue("imageUrl", fileData.url);
+  };
+
+  const handleImageError = (error: string) => {
+    toast({
+      title: "Error al subir imagen",
+      description: error,
+      variant: "destructive",
+    });
+  };
+
+  const removeImage = () => {
+    setUploadedImage(null);
+    form.setValue("imageUrl", "");
   };
 
   return (
@@ -109,6 +132,50 @@ export function CreatePostForm({ isOpen, onClose }: CreatePostFormProps) {
             />
             {form.formState.errors.excerpt && (
               <p className="text-sm text-claret-red">{form.formState.errors.excerpt.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label>Imagen destacada</Label>
+            {uploadedImage ? (
+              <div className="border rounded-lg p-4 bg-green-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Image className="w-6 h-6 text-green-600" />
+                    <div>
+                      <p className="font-medium text-sm">Imagen cargada</p>
+                      <p className="text-xs text-gray-500">{uploadedImage.filename}</p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={removeImage}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="mt-3">
+                  <img 
+                    src={uploadedImage.url} 
+                    alt="Preview" 
+                    className="w-full h-32 object-cover rounded"
+                  />
+                </div>
+              </div>
+            ) : (
+              <FileUpload
+                onUploadSuccess={handleImageUpload}
+                onUploadError={handleImageError}
+                accept="image"
+                maxSize={20 * 1024 * 1024} // 20MB
+                className="w-full"
+              />
+            )}
+            {form.formState.errors.imageUrl && (
+              <p className="text-sm text-claret-red">{form.formState.errors.imageUrl.message}</p>
             )}
           </div>
 

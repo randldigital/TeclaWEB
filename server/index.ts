@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -5,8 +6,33 @@ import https from 'https';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import helmet from 'helmet';
 
 const app = express();
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'self'", "https://www.google.com"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -45,10 +71,30 @@ app.use((req, res, next) => {
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    
+    // Log the full error for debugging (server-side only)
+    console.error('Server Error:', {
+      message: err.message,
+      stack: err.stack,
+      status: status,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Send generic error message to client to prevent information disclosure
+    let message = "Internal Server Error";
+    if (status === 400) {
+      message = "Bad Request";
+    } else if (status === 401) {
+      message = "Unauthorized";
+    } else if (status === 403) {
+      message = "Forbidden";
+    } else if (status === 404) {
+      message = "Not Found";
+    } else if (status === 429) {
+      message = "Too Many Requests";
+    }
 
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after

@@ -4,12 +4,13 @@ import { storage } from "./storage";
 import { setupAuth, requireAuth, requireRole } from "./auth";
 import { 
   insertPostSchema, insertPlaySchema, updatePlaySchema, insertTicketSchema, 
-  insertGalleryItemSchema, insertContactMessageSchema 
+  insertGalleryItemSchema, insertContactMessageSchema, insertPlayCommentSchema, insertPlayMemoryPhotoSchema
 } from "@shared/schema";
 import { z } from "zod";
-import { uploadImage, uploadDocument, uploadAny, getFileUrl, deleteFile } from "./upload";
+import { uploadImage, uploadDocument, uploadAny, getFileUrl, deleteFile, validateFileContent, detectImageOrientationFromFile } from "./upload";
 import { emailService } from "./email";
 import { pdfService } from "./pdf";
+import { sanitizeObject } from "./sanitize";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication
@@ -17,6 +18,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Serve uploaded files
   app.use('/uploads', express.static('uploads'));
+  
+  // Serve attached assets
+  app.use('/attached_assets', express.static('attached_assets'));
 
   // Posts routes
   app.get("/api/posts", async (req, res) => {
@@ -48,8 +52,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/posts", requireAuth, requireRole(["ADMIN", "MONITOR"]), async (req, res) => {
     try {
+      // Sanitize input data to prevent XSS
+      const sanitizedData = sanitizeObject(req.body, ['content'], ['title', 'excerpt']);
+      
       const validatedData = insertPostSchema.parse({
-        ...req.body,
+        ...sanitizedData,
         createdBy: req.user!.id,
       });
       const post = await storage.createPost(validatedData);
@@ -65,7 +72,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.put("/api/posts/:id", requireAuth, requireRole(["ADMIN", "MONITOR"]), async (req, res) => {
     try {
-      const validatedData = insertPostSchema.partial().parse(req.body);
+      // Sanitize input data to prevent XSS
+      const sanitizedData = sanitizeObject(req.body, ['content'], ['title', 'excerpt']);
+      
+      const validatedData = insertPostSchema.partial().parse(sanitizedData);
       const post = await storage.updatePost(req.params.id, validatedData);
       if (!post) {
         return res.status(404).json({ message: "Post not found" });
@@ -183,6 +193,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching showtimes:", error);
       res.status(500).json({ message: "Error fetching showtimes" });
+    }
+  });
+
+  app.get("/api/plays/:id/comments", async (req, res) => {
+    try {
+      const includePending = req.isAuthenticated() && req.user?.role === "ADMIN";
+      const comments = await storage.getPlayComments(req.params.id, includePending);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error fetching play comments:", error);
+      res.status(500).json({ message: "Error fetching play comments" });
+    }
+  });
+
+  app.post("/api/plays/:id/comments", requireAuth, async (req, res) => {
+    try {
+      const validatedData = insertPlayCommentSchema.pick({ content: true }).parse(req.body);
+      const comment = await storage.createPlayComment({
+        playId: req.params.id,
+        userId: req.user!.id,
+        content: validatedData.content,
+        status: "pending",
+      });
+      res.status(201).json(comment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error creating play comment:", error);
+      res.status(500).json({ message: "Error creating play comment" });
+    }
+  });
+
+  app.post("/api/plays/:id/comments/:commentId/approve", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
+    try {
+      const comment = await storage.approvePlayComment(req.params.commentId);
+      if (!comment) {
+        return res.status(404).json({ message: "Comentario no encontrado" });
+      }
+      res.json(comment);
+    } catch (error) {
+      console.error("Error approving play comment:", error);
+      res.status(500).json({ message: "Error approving play comment" });
+    }
+  });
+
+  app.post("/api/plays/:id/comments/:commentId/reject", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
+    try {
+      const deleted = await storage.rejectPlayComment(req.params.commentId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Comentario no encontrado" });
+      }
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("Error rejecting play comment:", error);
+      res.status(500).json({ message: "Error rejecting play comment" });
+    }
+  });
+
+  app.get("/api/plays/:id/memory-photos", async (req, res) => {
+    try {
+      const photos = await storage.getPlayMemoryPhotos(req.params.id);
+      res.json(photos);
+    } catch (error) {
+      console.error("Error fetching play memory photos:", error);
+      res.status(500).json({ message: "Error fetching play memory photos" });
+    }
+  });
+
+  app.post("/api/plays/:id/memory-photos", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
+    try {
+      const validatedData = insertPlayMemoryPhotoSchema.pick({ imageUrl: true }).parse(req.body);
+      const photo = await storage.createPlayMemoryPhoto({
+        playId: req.params.id,
+        imageUrl: validatedData.imageUrl,
+        createdBy: req.user!.id,
+      });
+      res.status(201).json(photo);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      if (error instanceof Error && error.message.includes("hasta 3 fotos")) {
+        return res.status(400).json({ message: error.message });
+      }
+      console.error("Error creating play memory photo:", error);
+      res.status(500).json({ message: "Error creating play memory photo" });
+    }
+  });
+
+  app.patch("/api/plays/:id/memory-photos/order", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
+    try {
+      const payload = z.object({ photoIds: z.array(z.string()).max(3) }).parse(req.body);
+      const orderedPhotos = await storage.reorderPlayMemoryPhotos(req.params.id, payload.photoIds);
+      res.json(orderedPhotos);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error reordering play memory photos:", error);
+      res.status(500).json({ message: "Error reordering play memory photos" });
+    }
+  });
+
+  app.delete("/api/plays/:id/memory-photos/:photoId", requireAuth, requireRole(["ADMIN"]), async (req, res) => {
+    try {
+      const deleted = await storage.deletePlayMemoryPhoto(req.params.photoId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Foto no encontrada" });
+      }
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("Error deleting play memory photo:", error);
+      res.status(500).json({ message: "Error deleting play memory photo" });
     }
   });
 
@@ -387,7 +511,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Play not found" });
       }
       
-      const totalPrice = storage.calculateGroupPrice(play.basePrice, adultTickets, childTickets);
+      // Check if booking is closed (1 hour before showtime)
+      const showtimeDate = new Date(play.dateTime);
+      const now = new Date();
+      const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000); // Add 1 hour
+      
+      if (showtimeDate <= oneHourFromNow) {
+        return res.status(400).json({ 
+          message: "Las reservas están cerradas. Las reservas se cierran 1 hora antes del inicio del showtime." 
+        });
+      }
+      
+      // Calculate total price - Monitor users get free tickets (VIP booking)
+      let totalPrice = storage.calculateGroupPrice(play.basePrice, adultTickets, childTickets);
+      
+      // If user is Monitor, set price to 0 (free booking)
+      if (req.user!.role === "MONITOR") {
+        totalPrice = 0;
+      }
       
       const validatedData = insertTicketSchema.parse({
         playId,
@@ -416,8 +557,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               playTitle: play.title,
               userName: user.name,
               userEmail: user.email,
-              date: play.dateTime.toLocaleDateString('es-ES'),
-              time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+              date: play.dateTime.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid' }),
+              time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }),
               adultTickets,
               childTickets,
               totalPrice,
@@ -430,8 +571,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               playTitle: play.title,
               userName: user.name,
               userEmail: user.email,
-              date: play.dateTime.toLocaleDateString('es-ES'),
-              time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+              date: play.dateTime.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid' }),
+              time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }),
               price: play.basePrice,
               seatNumber: ticket.seatNumber || undefined,
               qrCodeUrl: `data:image/png;base64,${ticket.qrCode}`,
@@ -569,13 +710,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No file uploaded" });
       }
       
+      // Validate file content to prevent malicious uploads
+      const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      const filePath = req.file.path;
+      const isValidContent = await validateFileContent(filePath, allowedImageTypes);
+      
+      if (!isValidContent) {
+        // Delete the uploaded file if it's not valid
+        deleteFile(req.file.filename);
+        return res.status(400).json({ message: "Invalid file type detected" });
+      }
+      
+      // Detect image orientation
+      const imageMetadata = await detectImageOrientationFromFile(filePath);
+      
       const fileUrl = getFileUrl(req.file.filename);
       res.json({
         filename: req.file.filename,
         originalName: req.file.originalname,
         url: fileUrl,
         size: req.file.size,
-        mimetype: req.file.mimetype
+        mimetype: req.file.mimetype,
+        orientation: imageMetadata?.orientation || 'square',
+        width: imageMetadata?.width || 0,
+        height: imageMetadata?.height || 0,
+        aspectRatio: imageMetadata?.aspectRatio || 1
       });
     } catch (error) {
       console.error("Error uploading image:", error);
@@ -663,8 +822,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ticketId: ticket.id,
         playTitle: play.title,
         userName: user.name,
-        date: play.dateTime.toLocaleDateString('es-ES'),
-        time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+        date: play.dateTime.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid' }),
+        time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }),
         price: play.basePrice,
         seatNumber: ticket.seatNumber || undefined,
         qrCodeData: `data:image/png;base64,${ticket.qrCode}`,
@@ -765,8 +924,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const responseData = {
         id: ticket.id,
         playTitle: play.title,
-        date: play.dateTime.toLocaleDateString('es-ES'),
-        time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+        date: play.dateTime.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid' }),
+        time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }),
         userName: user.name,
         status: ticket.status || 'Pendiente',
         paidAt: ticket.paidAt,
@@ -927,8 +1086,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ticketId: ticket.id,
         playTitle: play.title,
         userName: user.name,
-        date: play.dateTime.toLocaleDateString('es-ES'),
-        time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+        date: play.dateTime.toLocaleDateString('es-ES', { timeZone: 'Europe/Madrid' }),
+        time: play.dateTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }),
         price: play.basePrice,
         seatNumber: ticket.seatNumber || undefined,
         qrCodeData: `data:image/png;base64,${ticket.qrCode}`,
@@ -954,7 +1113,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Contact routes
   app.post("/api/contact", async (req, res) => {
     try {
-      const validatedData = insertContactMessageSchema.parse(req.body);
+      // Sanitize input data to prevent XSS
+      const sanitizedData = sanitizeObject(req.body, ['message'], ['name', 'email', 'subject']);
+      
+      const validatedData = insertContactMessageSchema.parse(sanitizedData);
       const message = await storage.createContactMessage(validatedData);
       
       // Send email notification to admin

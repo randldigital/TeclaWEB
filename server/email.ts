@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import type { Attachment } from 'nodemailer/lib/mailer';
 import { storage } from './storage';
 
 interface EmailOptions {
@@ -77,7 +78,7 @@ class EmailService {
     }
   }
 
-  async sendEmail(options: EmailOptions): Promise<boolean> {
+  async sendEmail(options: EmailOptions & { attachments?: Attachment[] }): Promise<boolean> {
     if (!this.transporter) {
       console.error('Email transporter not initialized');
       return false;
@@ -90,6 +91,7 @@ class EmailService {
         subject: options.subject,
         html: options.html,
         text: options.text || this.htmlToText(options.html),
+        attachments: options.attachments || [],
       };
 
       const info = await this.transporter.sendMail(mailOptions);
@@ -119,24 +121,76 @@ class EmailService {
   }
 
   async sendTicketConfirmation(data: TicketEmailData): Promise<boolean> {
-    const html = this.generateTicketEmailHTML(data);
+    let html = this.generateTicketEmailHTML(data);
     const subject = `Confirmación de Entrada - ${data.playTitle}`;
+    const attachments: Attachment[] = [];
+
+    // If QR code is provided, attach it as an inline image
+    if (data.qrCodeUrl) {
+      try {
+        // Extract base64 data from data URI
+        const base64Data = data.qrCodeUrl.replace(/^data:image\/png;base64,/, '');
+        const qrCodeBuffer = Buffer.from(base64Data, 'base64');
+        
+        attachments.push({
+          filename: 'qr-code.png',
+          content: qrCodeBuffer,
+          cid: 'qrcode@teclaweb', // Content-ID for inline attachment
+        });
+
+        // Replace data URI with CID reference in HTML
+        html = html.replace(
+          /<img src="data:image\/png;base64,[^"]+" alt="QR Code" \/>/g,
+          '<img src="cid:qrcode@teclaweb" alt="QR Code" />'
+        );
+      } catch (error) {
+        console.error('Failed to process QR code for email attachment:', error);
+        // Continue without attachment if QR code processing fails
+      }
+    }
 
     return this.sendEmail({
       to: data.userEmail,
       subject,
       html,
+      attachments,
     });
   }
 
   async sendGroupTicketConfirmation(data: GroupTicketEmailData): Promise<boolean> {
-    const html = this.generateGroupTicketEmailHTML(data);
+    let html = this.generateGroupTicketEmailHTML(data);
     const subject = `Confirmación de Entradas de Grupo - ${data.playTitle}`;
+    const attachments: Attachment[] = [];
+
+    // If QR code is provided, attach it as an inline image
+    if (data.qrCodeUrl) {
+      try {
+        // Extract base64 data from data URI
+        const base64Data = data.qrCodeUrl.replace(/^data:image\/png;base64,/, '');
+        const qrCodeBuffer = Buffer.from(base64Data, 'base64');
+        
+        attachments.push({
+          filename: 'qr-code.png',
+          content: qrCodeBuffer,
+          cid: 'qrcode@teclaweb', // Content-ID for inline attachment
+        });
+
+        // Replace data URI with CID reference in HTML
+        html = html.replace(
+          /<img src="data:image\/png;base64,[^"]+" alt="QR Code" \/>/g,
+          '<img src="cid:qrcode@teclaweb" alt="QR Code" />'
+        );
+      } catch (error) {
+        console.error('Failed to process QR code for email attachment:', error);
+        // Continue without attachment if QR code processing fails
+      }
+    }
 
     return this.sendEmail({
       to: data.userEmail,
       subject,
       html,
+      attachments,
     });
   }
 

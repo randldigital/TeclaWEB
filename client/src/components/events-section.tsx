@@ -1,10 +1,10 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { EventCard } from "@/components/event-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Star, Calendar, Clock, Euro } from "lucide-react";
+import { AlertCircle, Star, Calendar, Clock, Euro, Theater } from "lucide-react";
 import { Play } from "@shared/schema";
-import { formatDate, formatTime } from "@/utils/date-utils";
+import { formatDate, formatTime, parseDatabaseDate } from "@/utils/date-utils";
 import { Link } from "wouter";
 
 interface GroupedPlay {
@@ -24,8 +24,43 @@ export function EventsSection() {
     },
   });
 
-  const featuredGroup = groupedPlays?.[0];
-  const otherGroups = groupedPlays?.slice(1, 4) || [];
+  const now = new Date();
+
+  const { activeGroups, historicalGroups, featuredActive } = useMemo(() => {
+    const base = groupedPlays ?? [];
+
+    const active = base
+      .filter((group) => group.showtimes.some((showtime) => parseDatabaseDate(showtime.dateTime) >= now))
+      .map((group) => {
+        const nextShowtime = group.showtimes
+          .filter((showtime) => parseDatabaseDate(showtime.dateTime) >= now)
+          .sort((a, b) => parseDatabaseDate(a.dateTime).getTime() - parseDatabaseDate(b.dateTime).getTime())[0];
+
+        return { ...group, nextShowtime };
+      })
+      .sort((a, b) => parseDatabaseDate(a.nextShowtime.dateTime).getTime() - parseDatabaseDate(b.nextShowtime.dateTime).getTime());
+
+    const historical = base
+      .filter((group) => group.showtimes.some((showtime) => parseDatabaseDate(showtime.dateTime) < now))
+      .map((group) => {
+        const pastShowtimes = group.showtimes
+          .filter((showtime) => parseDatabaseDate(showtime.dateTime) < now)
+          .sort((a, b) => parseDatabaseDate(a.dateTime).getTime() - parseDatabaseDate(b.dateTime).getTime());
+        const firstPastShowtime = pastShowtimes[0];
+        const firstYear = parseDatabaseDate(firstPastShowtime.dateTime).getFullYear();
+        const lastYear = parseDatabaseDate(pastShowtimes[pastShowtimes.length - 1].dateTime).getFullYear();
+        const periodLabel = firstYear === lastYear ? `${firstYear}` : `${firstYear} - ${lastYear}`;
+
+        return { ...group, firstYear, periodLabel };
+      })
+      .sort((a, b) => b.firstYear - a.firstYear);
+
+    return {
+      activeGroups: active,
+      historicalGroups: historical,
+      featuredActive: active[0],
+    };
+  }, [groupedPlays]);
 
   return (
     <section className="py-16 bg-white" id="events">
@@ -33,7 +68,7 @@ export function EventsSection() {
         <div className="text-center mb-12">
           <h3 className="text-3xl font-bold text-claret-blue mb-4">Próximas Obras</h3>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Descubre nuestro programa de obras teatrales y reserva tus entradas
+            Visita nuestro calendario y reserva tus entradas.
           </p>
         </div>
 
@@ -85,8 +120,16 @@ export function EventsSection() {
           </div>
         ) : groupedPlays && groupedPlays.length > 0 ? (
           <>
-            {/* Featured Event */}
-            {featuredGroup && (
+            {activeGroups.length === 0 ? (
+              <div className="mb-12 rounded-xl border border-blue-100 bg-blue-50 p-6 text-center">
+                <p className="text-lg font-medium text-claret-blue">
+                  Nuevas obras próximamente, ¡echa un vistazo a nuestros espectáculos pasados!
+                </p>
+              </div>
+            ) : null}
+
+            {/* Featured active play */}
+            {featuredActive && (
               <div className="bg-gradient-to-r from-claret-blue to-claret-navy rounded-2xl p-8 mb-12 text-white">
                 <div className="grid md:grid-cols-2 gap-8 items-center">
                   <div>
@@ -94,32 +137,26 @@ export function EventsSection() {
                       <Star className="w-4 h-4 mr-2" />
                       Obra Destacada
                     </div>
-                    <h4 className="text-3xl font-bold mb-4">{featuredGroup.parentPlay.title}</h4>
+                    <h4 className="text-3xl font-bold mb-4">{featuredActive.parentPlay.title}</h4>
                     <p className="text-blue-100 text-lg mb-6">
-                      {featuredGroup.parentPlay.description}
+                      {featuredActive.parentPlay.description}
                     </p>
                     <div className="flex flex-wrap gap-4 mb-6">
                       <div className="flex items-center space-x-2">
                         <Calendar className="w-5 h-5 text-claret-yellow" />
                         <span>
-                          {featuredGroup.showtimes.length > 1 
-                            ? `${featuredGroup.showtimes.length} fechas disponibles`
-                            : formatDate(featuredGroup.parentPlay.dateTime)
-                          }
+                          {formatDate(featuredActive.nextShowtime.dateTime)}
                         </span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Clock className="w-5 h-5 text-claret-yellow" />
                         <span>
-                          {featuredGroup.showtimes.length > 1 
-                            ? "Múltiples horarios"
-                            : formatTime(featuredGroup.parentPlay.dateTime)
-                          }
+                          {formatTime(featuredActive.nextShowtime.dateTime)}
                         </span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Euro className="w-5 h-5 text-claret-yellow" />
-                        <span>Desde {Math.min(...featuredGroup.showtimes.map(s => s.basePrice))}€</span>
+                        <span>Desde {Math.min(...featuredActive.showtimes.map((s) => s.basePrice))}€</span>
                       </div>
                     </div>
                     <Button 
@@ -127,16 +164,16 @@ export function EventsSection() {
                       asChild
                       data-testid="button-reserve-featured-tickets"
                     >
-                      <Link href={`/events/${featuredGroup.parentPlay.id}`}>
+                      <Link href={`/events/${featuredActive.parentPlay.id}`}>
                         Reservar Entradas
                       </Link>
                     </Button>
                   </div>
                   <div className="relative">
-                    {featuredGroup.parentPlay.posterUrl ? (
+                    {featuredActive.parentPlay.posterUrl ? (
                       <img 
-                        src={featuredGroup.parentPlay.posterUrl} 
-                        alt={`Cartel de ${featuredGroup.parentPlay.title}`}
+                        src={featuredActive.parentPlay.posterUrl} 
+                        alt={`Cartel de ${featuredActive.parentPlay.title}`}
                         className="rounded-xl shadow-2xl w-full max-w-sm mx-auto"
                       />
                     ) : (
@@ -149,13 +186,62 @@ export function EventsSection() {
               </div>
             )}
 
-            {/* Event Grid */}
-            {otherGroups.length > 0 && (
+            {/* Active plays */}
+            {activeGroups.length > 1 && (
+              <>
+                <div className="mb-6">
+                  <h4 className="text-2xl font-bold text-claret-blue">Obras Activas</h4>
+                </div>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+                  {activeGroups.slice(1).map((group) => (
+                    <div key={group.parentPlay.id} className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
+                      {group.parentPlay.posterUrl ? (
+                        <img src={group.parentPlay.posterUrl} alt={`Cartel de ${group.parentPlay.title}`} className="w-full h-48 object-cover" />
+                      ) : (
+                        <div className="w-full h-48 bg-gradient-to-br from-claret-blue to-claret-navy flex items-center justify-center">
+                          <Theater className="w-14 h-14 text-claret-yellow" />
+                        </div>
+                      )}
+                      <div className="p-6">
+                        <h5 className="text-xl font-semibold text-claret-blue mb-2">{group.parentPlay.title}</h5>
+                        <p className="text-gray-600 mb-4 text-sm line-clamp-2">{group.parentPlay.description}</p>
+                        <div className="rounded-lg bg-blue-50 border border-blue-100 p-3 mb-4">
+                          <p className="text-sm font-medium text-claret-blue">Próxima función</p>
+                          <p className="text-sm text-gray-700">{formatDate(group.nextShowtime.dateTime)} · {formatTime(group.nextShowtime.dateTime)}</p>
+                        </div>
+                        <Button className="w-full bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy" asChild>
+                          <Link href={`/events/${group.parentPlay.id}`}>Ver funciones</Link>
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Historical plays */}
+            {historicalGroups.length > 0 && (
+              <>
+                <div className="mb-6">
+                  <h4 className="text-2xl font-bold text-claret-blue">Histórico</h4>
+                </div>
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {otherGroups.map((group) => (
-                  <EventCard key={group.parentPlay.id} play={group.parentPlay} showtimes={group.showtimes} />
+                {historicalGroups.map((group) => (
+                  <div key={`${group.parentPlay.id}-${group.firstYear}`} className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
+                    <div className="p-6">
+                      <h5 className="text-xl font-semibold text-claret-blue mb-2">
+                        {group.parentPlay.title} ({group.firstYear})
+                      </h5>
+                      <p className="text-gray-600 mb-3 text-sm line-clamp-2">{group.parentPlay.description}</p>
+                      <p className="text-sm text-gray-500 mb-4">Periodo: {group.periodLabel}</p>
+                      <Button className="w-full bg-claret-blue hover:bg-claret-navy text-white" asChild>
+                        <Link href={`/events/${group.parentPlay.id}?mode=memory`}>Ver memoria</Link>
+                      </Button>
+                    </div>
+                  </div>
                 ))}
               </div>
+              </>
             )}
           </>
         ) : (

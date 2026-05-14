@@ -24,7 +24,7 @@ export function FileUpload({
   onUploadSuccess, 
   onUploadError, 
   accept = 'image',
-  maxSize = 5 * 1024 * 1024, // 5MB default
+  maxSize = 20 * 1024 * 1024, // 20MB default
   className = ''
 }: FileUploadProps) {
   const [uploading, setUploading] = useState(false);

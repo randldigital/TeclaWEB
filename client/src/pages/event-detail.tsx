@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Header } from "@/components/layout/header";
@@ -18,6 +18,7 @@ import { ImagePreview } from "@/components/image-preview";
 import { TheaterLocation } from "@/components/theater-location";
 import { getTheaterLocation } from "@/utils/maps-utils";
 import { TicketQuantitySelector } from "@/components/ticket-quantity-selector";
+import { PastPlayMemory } from "@/components/past-play-memory";
 
 export default function EventDetail() {
   const { id } = useParams();
@@ -45,6 +46,44 @@ export default function EventDetail() {
     },
     enabled: !!id,
   });
+
+  const { data: showtimes = [], isLoading: isLoadingShowtimes } = useQuery<Play[]>({
+    queryKey: ["/api/plays", id, "showtimes"],
+    queryFn: async () => {
+      const response = await fetch(`/api/plays/${id}/showtimes`);
+      if (!response.ok) {
+        throw new Error("Error al cargar los showtimes");
+      }
+      return response.json();
+    },
+    enabled: !!id,
+  });
+
+  useEffect(() => {
+    if (!showtimes.length) {
+      return;
+    }
+
+    if (selectedShowtime && showtimes.some((showtime) => showtime.id === selectedShowtime.id)) {
+      return;
+    }
+
+    const now = new Date();
+    const upcomingShowtime = showtimes.find(
+      (showtime) => parseDatabaseDate(showtime.dateTime) >= now,
+    );
+    const defaultShowtime = upcomingShowtime ?? showtimes[0];
+    setSelectedShowtime(defaultShowtime);
+  }, [showtimes, selectedShowtime]);
+
+  const hasUpcomingShowtime = useMemo(() => {
+    if (!showtimes.length) {
+      return null;
+    }
+
+    const now = new Date();
+    return showtimes.some((showtime) => parseDatabaseDate(showtime.dateTime) >= now);
+  }, [showtimes]);
 
   const reserveTicketMutation = useMutation({
     mutationFn: async () => {
@@ -141,7 +180,32 @@ export default function EventDetail() {
     }
   };
 
-  const isEventPassed = play ? parseDatabaseDate(play.dateTime) < new Date() : false;
+  const isEventPassed = useMemo(() => {
+    if (hasUpcomingShowtime !== null) {
+      return !hasUpcomingShowtime;
+    }
+
+    return play ? parseDatabaseDate(play.dateTime) < new Date() : false;
+  }, [hasUpcomingShowtime, play]);
+
+  const isPastOnlyPlay = useMemo(() => {
+    if (!showtimes.length) {
+      return play ? parseDatabaseDate(play.dateTime) < new Date() : false;
+    }
+    const now = new Date();
+    return !showtimes.some((showtime) => parseDatabaseDate(showtime.dateTime) >= now);
+  }, [play, showtimes]);
+
+  // Check if booking is closed (1 hour before showtime)
+  const isBookingClosed = useMemo(() => {
+    if (!selectedShowtime) return false;
+    
+    const showtimeDate = parseDatabaseDate(selectedShowtime.dateTime);
+    const now = new Date();
+    const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000); // Add 1 hour
+    
+    return showtimeDate <= oneHourFromNow;
+  }, [selectedShowtime]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -186,6 +250,12 @@ export default function EventDetail() {
           </div>
         ) : play ? (
           <div className="grid lg:grid-cols-2 gap-8" data-testid={`event-detail-${play.id}`}>
+            {isPastOnlyPlay ? (
+              <div className="lg:col-span-2">
+                <PastPlayMemory play={play} showtimes={showtimes} />
+              </div>
+            ) : (
+              <>
             {/* Event Information */}
             <div className="space-y-6">
               <div>
@@ -254,14 +324,19 @@ export default function EventDetail() {
                     <Euro className="w-5 h-5 text-claret-yellow" />
                     <div>
                       <p className="font-medium">Precio</p>
-                      <p className="text-2xl font-bold text-claret-red">
-                        {selectedShowtime 
-                          ? ticketQuantity > 1 
-                            ? `${totalPrice.toFixed(2)}€` 
-                            : `${selectedShowtime.basePrice}€`
-                          : "Selecciona una fecha"
-                        }
-                      </p>
+                      <div className="flex items-center space-x-2">
+                        <p className="text-2xl font-bold text-claret-red">
+                          {selectedShowtime 
+                            ? ticketQuantity > 1 
+                              ? `${totalPrice.toFixed(2)}€` 
+                              : `${selectedShowtime.basePrice}€`
+                            : "Selecciona una fecha"
+                          }
+                        </p>
+                        <p className="text-xs text-amber-600 font-medium">
+                          El pago en taquilla sin reserva ascenderá a 8€
+                        </p>
+                      </div>
                       {ticketQuantity > 1 && (
                         <p className="text-sm text-gray-600">
                           {ticketQuantity} entradas ({adultTickets} adultos + {childTickets} niños)
@@ -288,12 +363,14 @@ export default function EventDetail() {
                     playId={play.id}
                     onShowtimeSelect={setSelectedShowtime}
                     selectedShowtimeId={selectedShowtime?.id}
+                    prefetchedShowtimes={showtimes}
+                    isLoadingPrefetchedShowtimes={isLoadingShowtimes}
                   />
                 </CardContent>
               </Card>
 
               {/* Ticket Quantity Selector */}
-              {selectedShowtime && user && !isEventPassed && (
+              {selectedShowtime && user && !isEventPassed && !isBookingClosed && (
                 <TicketQuantitySelector
                   basePrice={selectedShowtime.basePrice}
                   onQuantityChange={(quantity, adults, children, total) => {
@@ -315,6 +392,8 @@ export default function EventDetail() {
                   <CardDescription>
                     {isEventPassed 
                       ? "Este evento ya ha finalizado"
+                      : isBookingClosed
+                        ? "Las reservas están cerradas. Las reservas se cierran 1 hora antes del inicio del showtime."
                       : !selectedShowtime
                         ? "Selecciona una fecha y hora primero"
                         : user 
@@ -326,12 +405,14 @@ export default function EventDetail() {
                 <CardContent>
                   <Button
                     onClick={handleReserveTicket}
-                    disabled={isEventPassed || !selectedShowtime || isReserving || reserveTicketMutation.isPending}
+                    disabled={isEventPassed || isBookingClosed || !selectedShowtime || isReserving || reserveTicketMutation.isPending}
                     className="w-full bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy font-semibold py-3 transition-all transform hover:scale-105 disabled:transform-none"
                     data-testid="button-reserve-ticket"
                   >
                     {isEventPassed 
                       ? "Evento Finalizado"
+                      : isBookingClosed
+                        ? "Reservas Cerradas"
                       : !selectedShowtime
                         ? "Selecciona una fecha y hora"
                         : isReserving || reserveTicketMutation.isPending
@@ -373,7 +454,7 @@ export default function EventDetail() {
                         <div>
                           <h4 className="font-semibold text-gray-900">{play?.title}</h4>
                           <p className="text-sm text-gray-600">
-                            {play?.dateTime ? formatDate(play.dateTime, "d 'de' MMMM 'de' yyyy 'a las' HH:mm") : "Fecha no disponible"}
+                            {selectedShowtime?.dateTime ? formatDate(selectedShowtime.dateTime, "d 'de' MMMM 'de' yyyy 'a las' HH:mm") : "Fecha no disponible"}
                           </p>
                         </div>
                         <Badge variant="outline" className="text-xs">
@@ -385,22 +466,14 @@ export default function EventDetail() {
                       </p>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-3">
+                    <div>
                       <Button
                         onClick={() => downloadTicket(createdTicket.id, false)}
-                        className="bg-claret-blue hover:bg-claret-navy text-white"
+                        className="bg-claret-blue hover:bg-claret-navy text-white w-full"
                         size="sm"
                       >
                         <Download className="w-4 h-4 mr-2" />
-                        Descargar Original
-                      </Button>
-                      <Button
-                        onClick={() => downloadTicket(createdTicket.id, true)}
-                        className="bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy"
-                        size="sm"
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Descargar Personalizada
+                        Descargar
                       </Button>
                     </div>
                     
@@ -450,6 +523,8 @@ export default function EventDetail() {
                 showMap={true}
               />
             </div>
+              </>
+            )}
           </div>
         ) : null}
       </main>

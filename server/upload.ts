@@ -2,6 +2,8 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { nanoid } from 'nanoid';
+import { fileTypeFromBuffer } from 'file-type';
+import { detectImageOrientation, ImageMetadata } from './image-orientation';
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), 'uploads');
@@ -21,15 +23,17 @@ const storage = multer.diskStorage({
   }
 });
 
-// File filter for images
-const imageFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+// File filter for images with content validation
+const imageFilter = async (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
   
-  if (allowedMimes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image files are allowed'));
+  // First check MIME type
+  if (!allowedMimes.includes(file.mimetype)) {
+    return cb(new Error('Only image files are allowed'));
   }
+  
+  // Additional content validation will be done in the route handler
+  cb(null, true);
 };
 
 // File filter for documents
@@ -53,7 +57,7 @@ export const uploadImage = multer({
   storage,
   fileFilter: imageFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    fileSize: 20 * 1024 * 1024, // 20MB limit
   }
 });
 
@@ -75,6 +79,34 @@ export const uploadAny = multer({
 // Helper function to get file URL
 export function getFileUrl(filename: string): string {
   return `/uploads/${filename}`;
+}
+
+// Helper function to validate file content
+export async function validateFileContent(filePath: string, expectedTypes: string[]): Promise<boolean> {
+  try {
+    const fileBuffer = fs.readFileSync(filePath);
+    const fileType = await fileTypeFromBuffer(fileBuffer);
+    
+    if (!fileType) {
+      return false;
+    }
+    
+    return expectedTypes.includes(fileType.mime);
+  } catch (error) {
+    console.error('Error validating file content:', error);
+    return false;
+  }
+}
+
+// Helper function to detect image orientation
+export async function detectImageOrientationFromFile(filePath: string): Promise<ImageMetadata | null> {
+  try {
+    const fileBuffer = fs.readFileSync(filePath);
+    return await detectImageOrientation(fileBuffer);
+  } catch (error) {
+    console.error('Error detecting image orientation from file:', error);
+    return null;
+  }
 }
 
 // Helper function to delete file

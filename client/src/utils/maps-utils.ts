@@ -24,11 +24,11 @@ export function convertToEmbedUrl(mapsUrl: string): string {
     }
     
     // Fallback to a generic embed URL for Colegio Claret Sevilla
-    return 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3172.3325395304414!2d-5.986583684692207!3d37.38950697984652!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd126c1114be6291%3A0x34f018621cfe5648!2sColegio%20Claret!5e0!3m2!1ses!2ses!4v1640995200000!5m2!1ses!2ses';
+    return 'https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d792.855704539282!2d-5.986173963551686!3d37.35617110474678!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2ses!4v1760520349807!5m2!1sen!2ses';
   } catch (error) {
     console.error('Error converting maps URL:', error);
     // Return a fallback embed URL
-    return 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3172.3325395304414!2d-5.986583684692207!3d37.38950697984652!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd126c1114be6291%3A0x34f018621cfe5648!2sColegio%20Claret!5e0!3m2!1ses!2ses!4v1640995200000!5m2!1ses!2ses';
+    return 'https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d792.855704539282!2d-5.986173963551686!3d37.35617110474678!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2ses!4v1760520349807!5m2!1sen!2ses';
   }
 }
 
@@ -37,7 +37,8 @@ export function convertToEmbedUrl(mapsUrl: string): string {
  * @returns The embed URL for the theater location
  */
 export function getTheaterEmbedUrl(): string {
-  return 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3172.3325395304414!2d-5.986583684692207!3d37.38950697984652!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xd126c1114be6291%3A0x34f018621cfe5648!2sColegio%20Claret!5e0!3m2!1ses!2ses!4v1640995200000!5m2!1ses!2ses';
+  // Use the correct Google Maps embed URL for Colegio Claret Sevilla
+  return 'https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d792.855704539282!2d-5.986173963551686!3d37.35617110474678!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2ses!4v1760520349807!5m2!1sen!2ses';
 }
 
 /**

@@ -32,7 +32,7 @@ export function Footer() {
             </div>
             <p className="text-blue-200 mb-6 max-w-md">
               Formando jóvenes talentos en el arte teatral desde 2010. 
-              Descubre la magia del teatro en el Colegio Claret Sevilla.
+              Descubre la magia del teatro en el Colegio Claret de Sevilla.
             </p>
             <div className="flex space-x-4">
               <a 

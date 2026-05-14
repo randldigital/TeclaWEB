@@ -203,35 +203,35 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview" className="flex items-center space-x-2" data-testid="tab-overview">
-              <Settings className="w-4 h-4" />
-              <span>Resumen</span>
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1 overflow-x-auto">
+            <TabsTrigger value="overview" className="flex items-center justify-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3" data-testid="tab-overview">
+              <Settings className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Resumen</span>
             </TabsTrigger>
-            <TabsTrigger value="posts" className="flex items-center space-x-2" data-testid="tab-posts">
-              <FileText className="w-4 h-4" />
-              <span>Posts</span>
+            <TabsTrigger value="posts" className="flex items-center justify-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3" data-testid="tab-posts">
+              <FileText className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Posts</span>
             </TabsTrigger>
-            <TabsTrigger value="plays" className="flex items-center space-x-2" data-testid="tab-plays">
-              <Theater className="w-4 h-4" />
-              <span>Obras</span>
+            <TabsTrigger value="plays" className="flex items-center justify-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3" data-testid="tab-plays">
+              <Theater className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">Obras</span>
             </TabsTrigger>
             {isAdmin && (
-              <TabsTrigger value="users" className="flex items-center space-x-2" data-testid="tab-users">
-                <Users className="w-4 h-4" />
-                <span>Usuarios</span>
+              <TabsTrigger value="users" className="flex items-center justify-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3" data-testid="tab-users">
+                <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Usuarios</span>
               </TabsTrigger>
             )}
             {isAdmin && (
-              <TabsTrigger value="validation" className="flex items-center space-x-2" data-testid="tab-validation">
-                <Settings className="w-4 h-4" />
-                <span>Validación</span>
+              <TabsTrigger value="validation" className="flex items-center justify-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3" data-testid="tab-validation">
+                <Settings className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Validación</span>
               </TabsTrigger>
             )}
             {isAdmin && (
-              <TabsTrigger value="messages" className="flex items-center space-x-2" data-testid="tab-messages">
-                <Mail className="w-4 h-4" />
-                <span>Mensajes</span>
+              <TabsTrigger value="messages" className="flex items-center justify-center space-x-1 sm:space-x-2 text-xs sm:text-sm px-2 sm:px-3" data-testid="tab-messages">
+                <Mail className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="hidden sm:inline">Mensajes</span>
               </TabsTrigger>
             )}
           </TabsList>
@@ -308,43 +308,50 @@ export default function AdminDashboard() {
                   Acciones comunes para gestionar el contenido
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-wrap gap-4">
+              <CardContent className="flex flex-wrap gap-2 sm:gap-4">
                 <Button 
-                  className="bg-claret-blue hover:bg-claret-navy" 
+                  className="bg-claret-blue hover:bg-claret-navy text-xs sm:text-sm px-3 sm:px-4" 
                   data-testid="button-new-post"
                   onClick={() => setShowCreatePostForm(true)}
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nuevo Post
+                  <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Nuevo Post</span>
+                  <span className="sm:hidden">Post</span>
                 </Button>
                 <Button 
-                  className="bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy" 
+                  className="bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy text-xs sm:text-sm px-3 sm:px-4" 
                   data-testid="button-new-play"
                   onClick={() => setShowCreatePlayForm(true)}
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nueva Obra
+                  <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Nueva Obra</span>
+                  <span className="sm:hidden">Obra</span>
                 </Button>
                 {isAdmin && (
                   <>
                     <Button 
                       variant="outline" 
+                      className="text-xs sm:text-sm px-3 sm:px-4"
                       data-testid="button-validation-camera"
                       onClick={() => window.open('/validacion', '_blank')}
                     >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Validación Cámara
+                      <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Validación Cámara</span>
+                      <span className="sm:hidden">Cámara</span>
                     </Button>
                     <Button 
                       variant="outline" 
+                      className="text-xs sm:text-sm px-3 sm:px-4"
                       data-testid="button-validation-manual"
                       onClick={() => window.open('/qr-validator', '_blank')}
                     >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Validación Manual
+                      <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Validación Manual</span>
+                      <span className="sm:hidden">Manual</span>
                     </Button>
                     <Button 
                       variant="outline" 
+                      className="text-xs sm:text-sm px-3 sm:px-4"
                       data-testid="button-settings"
                       onClick={() => {
                         toast({
@@ -353,8 +360,9 @@ export default function AdminDashboard() {
                         });
                       }}
                     >
-                      <Settings className="w-4 h-4 mr-2" />
-                      Configuración
+                      <Settings className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Configuración</span>
+                      <span className="sm:hidden">Config</span>
                     </Button>
                   </>
                 )}
@@ -364,10 +372,10 @@ export default function AdminDashboard() {
 
           {/* Posts Tab */}
           <TabsContent value="posts" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-claret-blue">Gestión de Posts</h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <h2 className="text-xl sm:text-2xl font-bold text-claret-blue">Gestión de Posts</h2>
               <Button 
-                className="bg-claret-blue hover:bg-claret-navy" 
+                className="bg-claret-blue hover:bg-claret-navy w-full sm:w-auto" 
                 data-testid="button-create-post"
                 onClick={() => setShowCreatePostForm(true)}
               >
@@ -381,13 +389,13 @@ export default function AdminDashboard() {
                 {[1, 2, 3].map((i) => (
                   <Card key={i}>
                     <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-2 flex-1">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="space-y-2 flex-1 min-w-0">
                           <Skeleton className="h-4 w-3/4" />
                           <Skeleton className="h-3 w-1/2" />
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Skeleton className="h-6 w-16" />
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Skeleton className="h-8 w-8" />
                           <Skeleton className="h-8 w-8" />
                           <Skeleton className="h-8 w-8" />
                         </div>
@@ -401,9 +409,9 @@ export default function AdminDashboard() {
                 {posts.map((post) => (
                   <Card key={post.id} data-testid={`admin-post-${post.id}`}>
                     <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
                             <Badge className={getStatusColor(post.status)}>
                               {getStatusText(post.status)}
                             </Badge>
@@ -411,7 +419,7 @@ export default function AdminDashboard() {
                               {formatDate(post.createdAt, "d MMM yyyy")}
                             </span>
                           </div>
-                          <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-1 break-words">
                             {post.title}
                           </h3>
                           {post.excerpt && (
@@ -420,7 +428,7 @@ export default function AdminDashboard() {
                             </p>
                           )}
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           <Button variant="outline" size="sm" asChild data-testid={`button-view-post-${post.id}`}>
                             <Link href={`/posts/${post.id}`}>
                               <Eye className="w-4 h-4" />
@@ -463,10 +471,10 @@ export default function AdminDashboard() {
 
           {/* Plays Tab */}
           <TabsContent value="plays" className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-claret-blue">Gestión de Obras</h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <h2 className="text-xl sm:text-2xl font-bold text-claret-blue">Gestión de Obras</h2>
               <Button 
-                className="bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy" 
+                className="bg-claret-yellow hover:bg-claret-yellow-dark text-claret-navy w-full sm:w-auto" 
                 data-testid="button-create-play"
                 onClick={() => setShowCreatePlayForm(true)}
               >
@@ -480,13 +488,15 @@ export default function AdminDashboard() {
                 {[1, 2, 3].map((i) => (
                   <Card key={i}>
                     <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-2 flex-1">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="space-y-2 flex-1 min-w-0">
                           <Skeleton className="h-4 w-3/4" />
                           <Skeleton className="h-3 w-1/2" />
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Skeleton className="h-6 w-16" />
+                        <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+                          <Skeleton className="h-8 w-8" />
+                          <Skeleton className="h-8 w-8" />
+                          <Skeleton className="h-8 w-8" />
                           <Skeleton className="h-8 w-8" />
                           <Skeleton className="h-8 w-8" />
                         </div>
@@ -500,9 +510,9 @@ export default function AdminDashboard() {
                 {plays.map((play) => (
                   <Card key={play.id} data-testid={`admin-play-${play.id}`}>
                     <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
                             {play.genre && (
                               <Badge variant="secondary">{play.genre}</Badge>
                             )}
@@ -514,7 +524,7 @@ export default function AdminDashboard() {
                               Showtime Principal
                             </Badge>
                           </div>
-                          <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-1 break-words">
                             {play.title}
                           </h3>
                           <p className="text-gray-600 text-sm line-clamp-2">
@@ -524,7 +534,7 @@ export default function AdminDashboard() {
                             Precio: {play.basePrice}€
                           </p>
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
                           <Button variant="outline" size="sm" asChild data-testid={`button-view-play-${play.id}`}>
                             <Link href={`/events/${play.id}`}>
                               <Eye className="w-4 h-4" />
@@ -589,8 +599,8 @@ export default function AdminDashboard() {
           {/* Messages Tab (Admin only) */}
           {isAdmin && (
             <TabsContent value="messages" className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-claret-blue">Mensajes de Contacto</h2>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h2 className="text-xl sm:text-2xl font-bold text-claret-blue">Mensajes de Contacto</h2>
               </div>
 
               {messagesLoading ? (
@@ -616,14 +626,14 @@ export default function AdminDashboard() {
                   {contactMessages.map((message) => (
                     <Card key={message.id} data-testid={`contact-message-${message.id}`}>
                       <CardContent className="p-6">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h3 className="text-lg font-semibold text-gray-900">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-semibold text-gray-900 break-words">
                               {message.name}
                             </h3>
-                            <p className="text-sm text-gray-600">{message.email}</p>
+                            <p className="text-sm text-gray-600 break-all">{message.email}</p>
                           </div>
-                          <div className="text-right">
+                          <div className="text-left sm:text-right flex-shrink-0">
                             <Badge variant={message.status === "UNREAD" ? "destructive" : "secondary"}>
                               {message.status === "UNREAD" ? "Sin leer" : "Leído"}
                             </Badge>
@@ -633,15 +643,16 @@ export default function AdminDashboard() {
                           </div>
                         </div>
                         <div className="mb-3">
-                          <p className="text-sm font-medium text-claret-blue mb-1">
+                          <p className="text-sm font-medium text-claret-blue mb-1 break-words">
                             Asunto: {message.subject}
                           </p>
-                          <p className="text-gray-700">{message.message}</p>
+                          <p className="text-gray-700 break-words">{message.message}</p>
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                           <Button 
                             variant="outline" 
                             size="sm" 
+                            className="flex-1 sm:flex-none"
                             data-testid={`button-reply-message-${message.id}`}
                             onClick={() => {
                               toast({
@@ -656,6 +667,7 @@ export default function AdminDashboard() {
                           <Button 
                             variant="outline" 
                             size="sm" 
+                            className="flex-1 sm:flex-none"
                             data-testid={`button-mark-read-${message.id}`}
                             onClick={() => {
                               const newStatus = message.status === "UNREAD" ? "READ" : "UNREAD";
@@ -693,8 +705,8 @@ export default function AdminDashboard() {
           {/* Users Tab (Admin only) */}
           {isAdmin && (
             <TabsContent value="users" className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-claret-blue">Gestión de Usuarios</h2>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h2 className="text-xl sm:text-2xl font-bold text-claret-blue">Gestión de Usuarios</h2>
               </div>
               
               <UserManagement />
@@ -704,8 +716,8 @@ export default function AdminDashboard() {
           {/* Validation Tab (Admin only) */}
           {isAdmin && (
             <TabsContent value="validation" className="space-y-6">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-claret-blue">Gestión de Validación</h2>
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <h2 className="text-xl sm:text-2xl font-bold text-claret-blue">Gestión de Validación</h2>
               </div>
               
               <ValidationStats />

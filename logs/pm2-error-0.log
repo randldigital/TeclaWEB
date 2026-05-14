@@ -1,0 +1,13 @@
+2025-12-18 15:37:58 +00:00: Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/root/workspace/TeclaWEB/dist/server/routes' imported from /root/workspace/TeclaWEB/dist/server/index.js
+2025-12-18 15:37:58 +00:00:     at new NodeError (node:internal/errors:405:5)
+2025-12-18 15:37:58 +00:00:     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2025-12-18 15:37:58 +00:00:     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2025-12-18 15:37:58 +00:00:     at defaultResolve (node:internal/modules/esm/resolve:1193:11)
+2025-12-18 15:37:58 +00:00:     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:403:12)
+2025-12-18 15:37:58 +00:00:     at ModuleLoader.resolve (node:internal/modules/esm/loader:372:25)
+2025-12-18 15:37:58 +00:00:     at ModuleLoader.getModuleJob (node:internal/modules/esm/loader:249:38)
+2025-12-18 15:37:58 +00:00:     at ModuleWrap.<anonymous> (node:internal/modules/esm/module_job:76:39)
+2025-12-18 15:37:58 +00:00:     at link (node:internal/modules/esm/module_job:75:36) {
+2025-12-18 15:37:58 +00:00:   url: 'file:///root/workspace/TeclaWEB/dist/server/routes',
+2025-12-18 15:37:58 +00:00:   code: 'ERR_MODULE_NOT_FOUND'
+2025-12-18 15:37:58 +00:00: }

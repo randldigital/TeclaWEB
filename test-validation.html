@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Validation</title>
+</head>
+<body>
+    <h1>Testing Validation Page</h1>
+    <script>
+        // Test if the page loads without errors
+        console.log('Testing validation page...');
+        
+        // Test if we can access the validation page
+        fetch('/validacion')
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.text();
+            })
+            .then(html => {
+                console.log('Page loaded successfully');
+                console.log('HTML length:', html.length);
+            })
+            .catch(error => {
+                console.error('Error loading validation page:', error);
+            });
+    </script>
+</body>
+</html>

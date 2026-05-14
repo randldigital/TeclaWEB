@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+/* Import orientation-based layouts */
+@import './styles/orientation-layouts.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -155,6 +157,94 @@
   --shadow-lg: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 4px 6px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
   --shadow-xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00), 0px 8px 10px -1px hsl(202.8169 89.1213% 53.1373% / 0.00);
   --shadow-2xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0.00);
+}
+
+/* ============================================
+   CHRISTMAS THEME - Dec 1 to Jan 6
+   To disable: Set CHRISTMAS_THEME_ENABLED = false in use-christmas-theme.ts
+   ============================================ */
+
+.christmas-theme {
+  /* Christmas color overrides */
+  --claret-yellow: hsl(45 100% 50%); /* Gold */
+  --claret-yellow-dark: hsl(40 90% 45%);
+  --claret-blue: hsl(0 100% 40%); /* Red */
+  --claret-navy: hsl(0 90% 30%); /* Darker red */
+  --claret-red: hsl(120 100% 30%); /* Green */
+  
+  /* Christmas accent colors */
+  --christmas-red: hsl(0 100% 40%);
+  --christmas-green: hsl(120 100% 30%);
+  --christmas-gold: hsl(45 100% 50%);
+  
+  /* Subtle festive background */
+  background-image: 
+    radial-gradient(circle at 20% 50%, rgba(255, 0, 0, 0.02) 0%, transparent 50%),
+    radial-gradient(circle at 80% 50%, rgba(0, 128, 0, 0.02) 0%, transparent 50%);
+}
+
+/* Snowfall Animation */
+@keyframes snowfall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Twinkling Lights Animation */
+@keyframes twinkle {
+  0%, 100% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: translateX(-50%) scale(0.8);
+  }
+}
+
+/* Optional: Sparkle effect for buttons */
+.christmas-theme button:hover {
+  position: relative;
+}
+
+.christmas-theme button:hover::after {
+  content: '✨';
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  font-size: 12px;
+  animation: sparkle 0.5s ease-in-out;
+}
+
+@keyframes sparkle {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.5) rotate(180deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Optional: Subtle glow on header border */
+.christmas-theme header {
+  box-shadow: 0 2px 8px rgba(255, 0, 0, 0.1), 0 2px 8px rgba(0, 128, 0, 0.1);
 }
 
 @layer base {

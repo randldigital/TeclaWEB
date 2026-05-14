@@ -212,7 +212,7 @@ export function CreatePlayForm({ isOpen, onClose }: CreatePlayFormProps) {
                       Arrastra una imagen aquí o haz clic para seleccionar
                     </p>
                     <p className="text-xs text-gray-500 mb-4">
-                      Formatos: JPG, PNG, WebP • Máximo: 5MB • Recomendado: 800x1200px
+                      Formatos: JPG, PNG, WebP • Máximo: 20MB • Recomendado: 800x1200px
                     </p>
                     <FileUpload
                       onUploadSuccess={handlePosterUpload}

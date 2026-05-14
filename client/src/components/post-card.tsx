@@ -4,12 +4,20 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight } from "lucide-react";
 import { Post } from "@shared/schema";
 import { formatDate } from "@/utils/date-utils";
+import { useImageOrientation, getResponsiveLayoutClasses } from "@/hooks/useImageOrientation";
 
 interface PostCardProps {
   post: Post;
 }
 
 export function PostCard({ post }: PostCardProps) {
+  // Detect image orientation for layout
+  const imageMetadata = useImageOrientation(post.imageUrl || null);
+  const orientation = imageMetadata?.orientation || 'square';
+  
+  // Get responsive layout classes
+  const layoutClasses = getResponsiveLayoutClasses(orientation);
+  
   const getStatusColor = (status: string) => {
     switch (status) {
       case "PUBLISHED":
@@ -38,47 +46,83 @@ export function PostCard({ post }: PostCardProps) {
 
   return (
     <article 
-      className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
+      className={`bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow post-card post-card-${orientation}`}
       data-testid={`post-card-${post.id}`}
     >
-      {post.imageUrl && (
-        <img 
-          src={post.imageUrl} 
-          alt={post.title}
-          className="w-full h-48 object-cover"
-        />
-      )}
-      <div className="p-6">
-        <div className="flex items-center space-x-2 mb-3">
-          <Badge className={getStatusColor(post.status)}>
-            {getStatusText(post.status)}
-          </Badge>
-          <span className="text-gray-500 text-sm">
-            {formatDate(post.createdAt, "d MMM yyyy")}
-          </span>
+      {post.imageUrl ? (
+        <div className={`post-layout ${layoutClasses.mobile} md:${layoutClasses.tablet} lg:${layoutClasses.desktop}`}>
+          <div className={`image-container image-container-${orientation}`}>
+            <img 
+              src={post.imageUrl} 
+              alt={post.title}
+              className={`image-responsive image-responsive-${orientation}`}
+            />
+          </div>
+          <div className={`content-container content-container-${orientation}`}>
+            <div className="flex items-center space-x-2 mb-3">
+              <Badge className={getStatusColor(post.status)}>
+                {getStatusText(post.status)}
+              </Badge>
+              <span className="text-gray-500 text-sm">
+                {formatDate(post.createdAt, "d MMM yyyy")}
+              </span>
+            </div>
+            <h4 className="text-xl font-semibold text-claret-blue mb-3 hover:text-claret-navy">
+              <Link href={`/posts/${post.id}`} data-testid={`link-post-${post.id}`}>
+                {post.title}
+              </Link>
+            </h4>
+            {post.excerpt && (
+              <p className="text-gray-600 mb-4 line-clamp-3">
+                {post.excerpt}
+              </p>
+            )}
+            <Button 
+              variant="ghost" 
+              className="text-claret-blue hover:text-claret-navy p-0 h-auto font-medium inline-flex items-center space-x-1"
+              asChild
+              data-testid={`button-read-more-${post.id}`}
+            >
+              <Link href={`/posts/${post.id}`}>
+                <span>Leer más</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
-        <h4 className="text-xl font-semibold text-claret-blue mb-3 hover:text-claret-navy">
-          <Link href={`/posts/${post.id}`} data-testid={`link-post-${post.id}`}>
-            {post.title}
-          </Link>
-        </h4>
-        {post.excerpt && (
-          <p className="text-gray-600 mb-4 line-clamp-3">
-            {post.excerpt}
-          </p>
-        )}
-        <Button 
-          variant="ghost" 
-          className="text-claret-blue hover:text-claret-navy p-0 h-auto font-medium inline-flex items-center space-x-1"
-          asChild
-          data-testid={`button-read-more-${post.id}`}
-        >
-          <Link href={`/posts/${post.id}`}>
-            <span>Leer más</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </Button>
-      </div>
+      ) : (
+        <div className="p-6">
+          <div className="flex items-center space-x-2 mb-3">
+            <Badge className={getStatusColor(post.status)}>
+              {getStatusText(post.status)}
+            </Badge>
+            <span className="text-gray-500 text-sm">
+              {formatDate(post.createdAt, "d MMM yyyy")}
+            </span>
+          </div>
+          <h4 className="text-xl font-semibold text-claret-blue mb-3 hover:text-claret-navy">
+            <Link href={`/posts/${post.id}`} data-testid={`link-post-${post.id}`}>
+              {post.title}
+            </Link>
+          </h4>
+          {post.excerpt && (
+            <p className="text-gray-600 mb-4 line-clamp-3">
+              {post.excerpt}
+            </p>
+          )}
+          <Button 
+            variant="ghost" 
+            className="text-claret-blue hover:text-claret-navy p-0 h-auto font-medium inline-flex items-center space-x-1"
+            asChild
+            data-testid={`button-read-more-${post.id}`}
+          >
+            <Link href={`/posts/${post.id}`}>
+              <span>Leer más</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </Button>
+        </div>
+      )}
     </article>
   );
 }

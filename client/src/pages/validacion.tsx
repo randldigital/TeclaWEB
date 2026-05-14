@@ -10,6 +10,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { CheckCircle, XCircle, QrCode, Camera, Lock, Unlock, CreditCard } from 'lucide-react';
 import jsQR from 'jsqr';
 
+// Check if jsQR is available (only in browser)
+if (typeof window !== 'undefined' && typeof jsQR !== 'function') {
+  console.error('jsQR library not loaded properly');
+}
+
 interface WeeklyCode {
   code: string;
   validFrom: string;
@@ -57,6 +62,7 @@ export default function ValidacionPage() {
   const [scanAttempts, setScanAttempts] = useState(0);
   const [qrDetected, setQrDetected] = useState(false);
   const [processedTickets, setProcessedTickets] = useState<Set<string>>(new Set());
+  const [isClient, setIsClient] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -66,8 +72,23 @@ export default function ValidacionPage() {
   const rafIdRef = useRef<number | null>(null);
   const isScanningRef = useRef(false);
   
-  // Mobile detection
-  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  // Mobile detection with error handling
+  const isMobile = (() => {
+    try {
+      if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+        return false;
+      }
+      return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    } catch (error) {
+      console.warn('Could not detect mobile device:', error);
+      return false;
+    }
+  })();
+
+  // Client-side initialization
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Validate ticket ID format
   const isValidTicketId = (ticketId: string): boolean => {
@@ -120,7 +141,7 @@ export default function ValidacionPage() {
       setCameraActive(true);
       
       // Check browser compatibility
-      if (!navigator.mediaDevices?.getUserMedia) {
+      if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
         throw new Error('Camera access not supported in this browser');
       }
 
@@ -239,36 +260,52 @@ export default function ValidacionPage() {
     }, 30000);
 
     const scanFrame = async () => {
-      if (!videoRef.current || !canvasRef.current || !isScanningRef.current) return;
-
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const context = canvas.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
-
-      if (!context) return;
-
-      // Check if video is ready
-      if (video.videoWidth === 0 || video.videoHeight === 0) {
-        scanIntervalRef.current = setTimeout(scanFrame, 200);
-        return;
-      }
-
-      // Set canvas size with device pixel ratio for high-DPI displays
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.floor(video.videoWidth * dpr);
-      canvas.height = Math.floor(video.videoHeight * dpr);
-      canvas.style.width = `${video.videoWidth}px`;
-      canvas.style.height = `${video.videoHeight}px`;
-      context.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      // Draw video frame to canvas
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // Get image data for QR scanning
-      const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-
       try {
-        const qrData = await scanQRFromImageData(imageData);
+        if (!videoRef.current || !canvasRef.current || !isScanningRef.current) return;
+
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        
+        if (!video || !canvas) {
+          console.error('Video or canvas element not found');
+          return;
+        }
+
+        // Check if video is ready
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+          rafIdRef.current = requestAnimationFrame(scanFrame);
+          return;
+        }
+        
+        const context = canvas.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
+
+        if (!context) {
+          console.error('Could not get 2D context from canvas');
+          return;
+        }
+
+        // Set canvas size only if it changed (optimization)
+        // Use video dimensions directly for better QR detection
+        const targetWidth = video.videoWidth;
+        const targetHeight = video.videoHeight;
+        
+        if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          canvas.style.width = `${targetWidth}px`;
+          canvas.style.height = `${targetHeight}px`;
+          // Reset transform to identity
+          context.setTransform(1, 0, 0, 1, 0, 0);
+        }
+
+        // Draw video frame to canvas at full size
+        context.drawImage(video, 0, 0, targetWidth, targetHeight);
+
+        // Get image data for QR scanning - use canvas dimensions
+        const imageData = context.getImageData(0, 0, targetWidth, targetHeight);
+
+        try {
+          const qrData = await scanQRFromImageData(imageData);
         
         if (qrData) {
           console.log('QR Code detected:', qrData);
@@ -329,10 +366,15 @@ export default function ValidacionPage() {
           // Continue scanning with requestAnimationFrame for better performance
           rafIdRef.current = requestAnimationFrame(scanFrame);
         }
-              } catch (error) {
+        } catch (error) {
           console.error('Error scanning QR code:', error);
           rafIdRef.current = requestAnimationFrame(scanFrame);
         }
+      } catch (error) {
+        console.error('Error in scanFrame:', error);
+        // Continue scanning even if there's an error
+        rafIdRef.current = requestAnimationFrame(scanFrame);
+      }
     };
 
     scanFrame();
@@ -359,7 +401,27 @@ export default function ValidacionPage() {
   const scanQRFromImageData = async (imageData: ImageData): Promise<string | null> => {
     return new Promise((resolve) => {
       try {
-        console.log('Scanning image data:', imageData.width, 'x', imageData.height);
+        // Check if jsQR is available
+        if (typeof jsQR !== 'function') {
+          console.error('jsQR library not loaded');
+          resolve(null);
+          return;
+        }
+
+        // Validate image data
+        if (!imageData || !imageData.data || imageData.width === 0 || imageData.height === 0) {
+          console.warn('Invalid image data provided to QR scanner');
+          resolve(null);
+          return;
+        }
+
+        // Ensure image data has the correct length (width * height * 4 for RGBA)
+        const expectedLength = imageData.width * imageData.height * 4;
+        if (imageData.data.length !== expectedLength) {
+          console.warn(`Image data length mismatch: expected ${expectedLength}, got ${imageData.data.length}`);
+          resolve(null);
+          return;
+        }
         
         const startTime = performance.now();
         const code = jsQR(imageData.data, imageData.width, imageData.height, {
@@ -372,7 +434,10 @@ export default function ValidacionPage() {
           console.log('QR location:', code.location);
           resolve(code.data);
         } else {
-          console.log(`No QR code found in ${decodeTime.toFixed(2)}ms (${imageData.width}x${imageData.height})`);
+          // Only log occasionally to avoid console spam
+          if (Math.random() < 0.01) {
+            console.log(`Scanning... (${imageData.width}x${imageData.height})`);
+          }
           resolve(null);
         }
       } catch (error) {
@@ -492,8 +557,14 @@ export default function ValidacionPage() {
           handleAlreadyValidatedTicket(ticketData);
         }
         
+        console.log("[qr] api OK", ticketData);
+        console.log("[qr] setting ticket");
         setScannedTicket(ticketData);
-        setShowModal(true);
+        console.log("[qr] opening dialog next frame");
+        // Data-before-UI: set ticket first, then open modal on next frame
+        requestAnimationFrame(() => {
+          setShowModal(true);
+        });
         
         // Pause scanning but keep camera active
         setIsScanning(false);
@@ -578,8 +649,14 @@ export default function ValidacionPage() {
 
       if (response.ok) {
         const ticketData = await response.json();
+        console.log("[qr] test ticket OK", ticketData);
+        console.log("[qr] setting test ticket");
         setScannedTicket(ticketData);
-        setShowModal(true);
+        console.log("[qr] opening dialog next frame");
+        // Data-before-UI: set ticket first, then open modal on next frame
+        requestAnimationFrame(() => {
+          setShowModal(true);
+        });
         setSuccess('✅ Ticket de prueba válido');
       } else {
         setError('❌ Ticket de prueba no válido');
@@ -706,66 +783,76 @@ export default function ValidacionPage() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopCamera();
-      if (scanTimeoutRef.current) {
-        clearTimeout(scanTimeoutRef.current);
-      }
-      if (rafIdRef.current) {
-        cancelAnimationFrame(rafIdRef.current);
+      try {
+        stopCamera();
+        if (scanTimeoutRef.current) {
+          clearTimeout(scanTimeoutRef.current);
+        }
+        if (rafIdRef.current) {
+          cancelAnimationFrame(rafIdRef.current);
+        }
+      } catch (error) {
+        console.error('Error in cleanup effect:', error);
       }
     };
   }, []);
 
   // Video management and debugging effect
   useEffect(() => {
-    if (cameraActive && videoRef.current && streamRef.current) {
-      const video = videoRef.current;
-      const stream = streamRef.current;
-      
-      console.log('Video management effect triggered');
-      console.log('Video readyState:', video.readyState);
-      console.log('Video paused:', video.paused);
-      console.log('Video srcObject:', !!video.srcObject);
-      console.log('Stream active:', stream.active);
-      
-      // Ensure video has the stream and is playing
-      if (!video.srcObject) {
-        console.log('Setting video srcObject');
-        video.srcObject = stream;
+    try {
+      if (cameraActive && videoRef.current && streamRef.current) {
+        const video = videoRef.current;
+        const stream = streamRef.current;
+        
+        console.log('Video management effect triggered');
+        console.log('Video readyState:', video.readyState);
+        console.log('Video paused:', video.paused);
+        console.log('Video srcObject:', !!video.srcObject);
+        console.log('Stream active:', stream.active);
+        
+        // Ensure video has the stream and is playing
+        if (!video.srcObject) {
+          console.log('Setting video srcObject');
+          video.srcObject = stream;
+        }
+        
+        if (video.readyState >= 2 && video.paused) {
+          console.log('Forcing video play');
+          video.play().catch(console.error);
+        }
+        
+        // Additional check for video visibility
+        if (video.readyState >= 2 && video.videoWidth === 0) {
+          console.log('Video has no dimensions, forcing refresh');
+          setTimeout(() => {
+            if (video.videoWidth === 0) {
+              video.srcObject = null;
+              setTimeout(() => {
+                video.srcObject = stream;
+                video.play().catch(console.error);
+              }, 100);
+            }
+          }, 1000);
+        }
       }
-      
-      if (video.readyState >= 2 && video.paused) {
-        console.log('Forcing video play');
-        video.play().catch(console.error);
-      }
-      
-      // Additional check for video visibility
-      if (video.readyState >= 2 && video.videoWidth === 0) {
-        console.log('Video has no dimensions, forcing refresh');
-        setTimeout(() => {
-          if (video.videoWidth === 0) {
-            video.srcObject = null;
-            setTimeout(() => {
-              video.srcObject = stream;
-              video.play().catch(console.error);
-            }, 100);
-          }
-        }, 1000);
-      }
+    } catch (error) {
+      console.error('Error in video management effect:', error);
     }
   }, [cameraActive]);
 
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-4xl mx-auto">
-        <Breadcrumb />
-        <div className="text-center mb-8">
-          <QrCode className="w-16 h-16 mx-auto mb-4 text-primary" />
-          <h1 className="text-3xl font-bold mb-2">Validación de Entradas</h1>
-          <p className="text-muted-foreground">
-            Sistema de validación con código semanal y escáner de códigos QR
-          </p>
-        </div>
+  // Add error boundary protection for the entire component
+  try {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          <Breadcrumb />
+          <div className="text-center mb-8">
+            <QrCode className="w-16 h-16 mx-auto mb-4 text-primary" />
+            <h1 className="text-3xl font-bold mb-2">Validación de Entradas</h1>
+            <p className="text-muted-foreground">
+              Sistema de validación con código semanal y escáner de códigos QR
+            </p>
+          </div>
 
         {/* Weekly Code Section */}
         <Card className="mb-6">
@@ -1086,24 +1173,28 @@ export default function ValidacionPage() {
           </Card>
         )}
 
-        {/* Ticket Details Modal */}
-        <Dialog open={showModal} onOpenChange={(open) => {
-          setShowModal(open);
-          // If modal is closing by clicking outside and we're not processing, resume scanning
-          if (!open && !isProcessing) {
-            setTimeout(() => {
-              setScannedTicket(null);
-              setSuccess(null);
-              setIsScanning(true);
-              isScanningRef.current = true;
-              setScanAttempts(0);
-              setQrDetected(false);
-              setNoQRDetected(false);
-              startScanning();
-            }, 500);
-          }
-        }}>
-          <DialogContent className="max-w-md">
+        {/* Ticket Details Modal - Client-only with defensive rendering */}
+        {isClient && showModal && scannedTicket && (
+          <Dialog open={showModal} onOpenChange={(open) => {
+            setShowModal(open);
+            // If modal is closing by clicking outside and we're not processing, resume scanning
+            if (!open && !isProcessing) {
+              setTimeout(() => {
+                setScannedTicket(null);
+                setSuccess(null);
+                setIsScanning(true);
+                isScanningRef.current = true;
+                setScanAttempts(0);
+                setQrDetected(false);
+                setNoQRDetected(false);
+                startScanning();
+              }, 500);
+            }
+          }}>
+          <DialogContent 
+            className="max-w-md"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <CreditCard className="w-5 h-5" />
@@ -1111,41 +1202,41 @@ export default function ValidacionPage() {
               </DialogTitle>
             </DialogHeader>
             
-            {scannedTicket && (
+            {scannedTicket ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="font-semibold">Obra:</span>
-                    <p className="text-muted-foreground">{scannedTicket.playTitle}</p>
+                    <p className="text-muted-foreground">{scannedTicket?.playTitle || 'N/A'}</p>
                   </div>
                   <div>
                     <span className="font-semibold">Día y hora:</span>
-                    <p className="text-muted-foreground">{scannedTicket.date} - {scannedTicket.time}</p>
+                    <p className="text-muted-foreground">{scannedTicket?.date || 'N/A'} - {scannedTicket?.time || 'N/A'}</p>
                   </div>
                   <div>
                     <span className="font-semibold">Precio:</span>
                     <p className="text-muted-foreground">
-                      {scannedTicket.isGroupTicket 
-                        ? `€${scannedTicket.totalPrice?.toFixed(2)} (Grupo)`
-                        : `€${scannedTicket.price.toFixed(2)}`
+                      {scannedTicket?.isGroupTicket 
+                        ? `€${scannedTicket?.totalPrice?.toFixed(2) || '0.00'} (Grupo)`
+                        : `€${scannedTicket?.price?.toFixed(2) || '0.00'}`
                       }
                     </p>
                   </div>
                   <div>
                     <span className="font-semibold">Asiento:</span>
-                    <p className="text-muted-foreground">{scannedTicket.seatNumber || 'General'}</p>
+                    <p className="text-muted-foreground">{scannedTicket?.seatNumber || 'General'}</p>
                   </div>
                 </div>
 
                 {/* Group ticket information */}
-                {scannedTicket.isGroupTicket && (
+                {scannedTicket?.isGroupTicket && (
                   <div className="pt-2 border-t bg-blue-50 p-3 rounded-lg">
                     <span className="font-semibold text-blue-800">🎭 Entrada de Grupo:</span>
                     <div className="text-sm text-blue-700 mt-1">
-                      <p>• Total de entradas: {scannedTicket.quantity}</p>
-                      <p>• Adultos: {scannedTicket.adultTickets}</p>
-                      <p>• Niños: {scannedTicket.childTickets}</p>
-                      <p>• Precio base: €{scannedTicket.basePrice?.toFixed(2)}</p>
+                      <p>• Total de entradas: {scannedTicket?.quantity || 'N/A'}</p>
+                      <p>• Adultos: {scannedTicket?.adultTickets || 'N/A'}</p>
+                      <p>• Niños: {scannedTicket?.childTickets || 'N/A'}</p>
+                      <p>• Precio base: €{scannedTicket?.basePrice?.toFixed(2) || '0.00'}</p>
                     </div>
                   </div>
                 )}
@@ -1180,6 +1271,10 @@ export default function ValidacionPage() {
                     </AlertDescription>
                   </Alert>
                 )}
+              </div>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-muted-foreground">No hay datos de ticket disponibles</p>
               </div>
             )}
 
@@ -1221,7 +1316,29 @@ export default function ValidacionPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        )}
       </div>
     </div>
   );
+  } catch (error) {
+    console.error('Error in ValidacionPage component:', error);
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold mb-2">Error en Validación</h1>
+            <p className="text-red-600 mb-4">
+              Ha ocurrido un error inesperado. Por favor, recarga la página.
+            </p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Recargar Página
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 } 

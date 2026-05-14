@@ -1,0 +1,13 @@
+{
+  "data": {
+    "username": "escuelatecla",
+    "postUrl": "https://www.instagram.com/p/mock-post/",
+    "timestamp": "2025-09-22T13:16:13.244Z",
+    "images": [
+      "https://via.placeholder.com/600x600/8B5CF6/FFFFFF?text=Mock+Instagram+Post"
+    ],
+    "caption": "Este es un post de prueba para demostrar la funcionalidad de Instagram. En producción, este contenido se obtendría automáticamente desde la cuenta @escuelatecla.",
+    "fetchedAt": "2025-09-22T13:16:13.244Z"
+  },
+  "lastFetched": "2025-09-22T13:16:13.246Z"
+}

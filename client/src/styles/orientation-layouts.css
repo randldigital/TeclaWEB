@@ -1,0 +1,143 @@
+/* Orientation-based layouts for posts */
+
+/* Base layout classes */
+.post-layout {
+  @apply transition-all duration-300;
+}
+
+/* Mobile-first: Always stacked */
+.post-layout-mobile {
+  @apply flex flex-col space-y-4;
+}
+
+/* Landscape layouts */
+.post-layout-landscape {
+  @apply grid grid-cols-1 gap-6;
+}
+
+.post-layout-landscape-tablet {
+  @apply md:grid-cols-2 md:gap-6;
+}
+
+.post-layout-landscape-desktop {
+  @apply lg:grid-cols-2 lg:gap-8;
+}
+
+/* Portrait layouts */
+.post-layout-portrait {
+  @apply flex flex-col space-y-6;
+}
+
+.post-layout-portrait-desktop {
+  @apply lg:space-y-8;
+}
+
+/* Square layouts */
+.post-layout-square {
+  @apply grid grid-cols-1 gap-6;
+}
+
+.post-layout-square-desktop {
+  @apply xl:grid-cols-2 xl:gap-8;
+}
+
+/* Image containers with orientation-specific styling */
+.image-container {
+  @apply relative overflow-hidden rounded-lg shadow-md;
+}
+
+.image-container-landscape {
+  @apply aspect-video;
+}
+
+.image-container-portrait {
+  @apply aspect-[3/4];
+}
+
+.image-container-square {
+  @apply aspect-square;
+}
+
+/* Content containers */
+.content-container {
+  @apply flex flex-col justify-center space-y-4;
+}
+
+.content-container-landscape {
+  @apply p-6;
+}
+
+.content-container-portrait {
+  @apply p-6;
+}
+
+.content-container-square {
+  @apply p-6;
+}
+
+/* Responsive image sizing */
+.image-responsive {
+  @apply w-full h-full object-contain bg-gray-100;
+}
+
+.image-responsive-landscape {
+  @apply max-h-64;
+}
+
+.image-responsive-portrait {
+  @apply max-h-96;
+}
+
+.image-responsive-square {
+  @apply max-h-80;
+}
+
+/* Animation and transitions */
+.post-card {
+  @apply transition-all duration-300 hover:shadow-xl;
+}
+
+.post-card-landscape {
+  @apply hover:scale-[1.02];
+}
+
+.post-card-portrait {
+  @apply hover:scale-[1.01];
+}
+
+.post-card-square {
+  @apply hover:scale-[1.02];
+}
+
+/* Media queries for fine-tuning */
+@media (max-width: 640px) {
+  .post-layout-landscape,
+  .post-layout-square {
+    @apply grid-cols-1;
+  }
+  
+  .image-container-landscape,
+  .image-container-square {
+    @apply aspect-video;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .post-layout-landscape {
+    @apply grid-cols-2;
+  }
+  
+  .post-layout-square {
+    @apply grid-cols-1;
+  }
+}
+
+@media (min-width: 1024px) {
+  .post-layout-landscape {
+    @apply grid-cols-2;
+  }
+  
+  .post-layout-square {
+    @apply grid-cols-2;
+  }
+}

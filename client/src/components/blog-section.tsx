@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { PostCard } from "@/components/post-card";
 import { FeaturedPost } from "@/components/featured-post";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Instagram, Music } from "lucide-react";
 import { Post } from "@shared/schema";
 
 export function BlogSection() {
@@ -25,9 +25,48 @@ export function BlogSection() {
     <section className="py-16 bg-white" id="news">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h3 className="text-3xl font-bold text-claret-blue mb-4">Últimas Noticias</h3>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
+            <h3 className="text-3xl font-bold text-claret-blue">Últimas Noticias</h3>
+            <div className="flex gap-3">
+              {/* Instagram Button */}
+              <Button
+                asChild
+                className="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-400 hover:from-purple-600 hover:via-pink-600 hover:to-orange-500 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                <a 
+                  href="https://www.instagram.com/escuelatecla/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2"
+                >
+                  <Instagram className="w-4 h-4" />
+                  <span className="hidden sm:inline">Síguenos en Instagram</span>
+                </a>
+              </Button>
+              
+              {/* TikTok Button */}
+              <Button
+                asChild
+                className="bg-gradient-to-r from-black to-gray-800 hover:from-gray-800 hover:to-black text-white px-4 py-2 rounded-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                <a 
+                href="https://www.tiktok.com/@escuela_tecla" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-200 hover:text-claret-yellow transition-colors"
+                aria-label="TikTok"
+                data-testid="link-tiktok"
+              >
+                <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+                </svg>
+                  <span className="hidden sm:inline">¡Y en TikTok!</span>
+                </a>
+              </Button>
+            </div>
+          </div>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Mantente al día con las últimas novedades de nuestro teatro escolar
+            ¡Mantente al día con las últimas novedades!
           </p>
         </div>
         

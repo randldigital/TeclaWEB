@@ -122,7 +122,7 @@ export default function PostDetail() {
                 <img 
                   src={post.imageUrl} 
                   alt={post.title}
-                  className="w-full h-64 md:h-96 object-cover rounded-lg shadow-lg mb-8"
+                  className="w-full h-64 md:h-96 object-contain bg-gray-100 rounded-lg shadow-lg mb-8"
                 />
               )}
             </div>

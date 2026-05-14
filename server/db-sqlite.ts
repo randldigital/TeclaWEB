@@ -24,6 +24,7 @@ sqlite.exec(`
     content TEXT NOT NULL,
     excerpt TEXT,
     image_url TEXT,
+    image_orientation TEXT,
     status TEXT DEFAULT 'PUBLISHED' NOT NULL,
     created_by TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -36,12 +37,15 @@ sqlite.exec(`
     title TEXT NOT NULL,
     description TEXT NOT NULL,
     poster_url TEXT,
+    poster_orientation TEXT,
     date_time DATETIME NOT NULL,
     base_price REAL DEFAULT 5.0 NOT NULL,
     genre TEXT,
     created_by TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    parent_play_id TEXT,
+    showtime_order INTEGER DEFAULT 0,
     FOREIGN KEY (created_by) REFERENCES users(id)
   );
 
@@ -93,9 +97,75 @@ sqlite.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS play_comments (
+    id TEXT PRIMARY KEY,
+    play_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    status TEXT DEFAULT 'pending' NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    FOREIGN KEY (play_id) REFERENCES plays(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS play_memory_photos (
+    id TEXT PRIMARY KEY,
+    play_id TEXT NOT NULL,
+    image_url TEXT NOT NULL,
+    display_order INTEGER DEFAULT 0 NOT NULL,
+    created_by TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    FOREIGN KEY (play_id) REFERENCES plays(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+  );
+
   CREATE TABLE IF NOT EXISTS sessions (
     sid TEXT PRIMARY KEY,
     sess TEXT NOT NULL,
     expire DATETIME NOT NULL
   );
+`);
+
+// Add missing columns to existing plays table
+try {
+  sqlite.exec(`
+    -- Add poster_orientation column if it doesn't exist
+    ALTER TABLE plays ADD COLUMN poster_orientation TEXT;
+  `);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  sqlite.exec(`
+    -- Add parent_play_id column if it doesn't exist  
+    ALTER TABLE plays ADD COLUMN parent_play_id TEXT;
+  `);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+try {
+  sqlite.exec(`
+    -- Add showtime_order column if it doesn't exist
+    ALTER TABLE plays ADD COLUMN showtime_order INTEGER DEFAULT 0;
+  `);
+} catch (error) {
+  // Column might already exist, ignore error
+}
+
+// Update existing plays to set themselves as their own parent
+sqlite.exec(`
+  UPDATE plays SET parent_play_id = id WHERE parent_play_id IS NULL;
+`);
+
+// Create index for better performance when querying by parent_play_id
+sqlite.exec(`
+  CREATE INDEX IF NOT EXISTS idx_plays_parent_play_id ON plays (parent_play_id);
 `); 
+
+sqlite.exec(`
+  CREATE INDEX IF NOT EXISTS idx_play_comments_play_id ON play_comments (play_id);
+  CREATE INDEX IF NOT EXISTS idx_play_comments_status ON play_comments (status);
+  CREATE INDEX IF NOT EXISTS idx_play_memory_photos_play_id ON play_memory_photos (play_id);
+`);

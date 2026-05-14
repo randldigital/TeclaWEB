@@ -24,7 +24,7 @@ export default function ObrasPage() {
                 🎭 Nuestras Obras
               </h1>
               <p className="text-xl md:text-2xl opacity-90 max-w-3xl mx-auto">
-                Descubre las increíbles producciones teatrales del Colegio Claret Sevilla
+                Descubre nuestras producciones teatrales.
               </p>
             </div>
           </div>

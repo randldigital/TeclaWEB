@@ -4,32 +4,37 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Calendar, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-
-interface Showtime {
-  id: string;
-  title: string;
-  description: string;
-  posterUrl: string | null;
-  dateTime: Date;
-  basePrice: number;
-  genre: string | null;
-  createdBy: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import { Play } from "@shared/schema";
 
 interface ShowtimePickerProps {
   playId: string;
-  onShowtimeSelect: (showtime: Showtime) => void;
+  onShowtimeSelect: (showtime: Play) => void;
   selectedShowtimeId?: string;
+  prefetchedShowtimes?: Play[];
+  isLoadingPrefetchedShowtimes?: boolean;
 }
 
-export function ShowtimePicker({ playId, onShowtimeSelect, selectedShowtimeId }: ShowtimePickerProps) {
-  const [showtimes, setShowtimes] = useState<Showtime[]>([]);
-  const [loading, setLoading] = useState(true);
+export function ShowtimePicker({
+  playId,
+  onShowtimeSelect,
+  selectedShowtimeId,
+  prefetchedShowtimes,
+  isLoadingPrefetchedShowtimes = false,
+}: ShowtimePickerProps) {
+  const [showtimes, setShowtimes] = useState<Play[]>(prefetchedShowtimes ?? []);
+  const [loading, setLoading] = useState(prefetchedShowtimes ? isLoadingPrefetchedShowtimes : true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (prefetchedShowtimes) {
+      setShowtimes(prefetchedShowtimes);
+      setLoading(isLoadingPrefetchedShowtimes);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+
     const fetchShowtimes = async () => {
       try {
         setLoading(true);
@@ -38,6 +43,9 @@ export function ShowtimePicker({ playId, onShowtimeSelect, selectedShowtimeId }:
           throw new Error('Failed to fetch showtimes');
         }
         const data = await response.json();
+        if (cancelled) {
+          return;
+        }
         setShowtimes(data);
         
         // Auto-select the first showtime if only one exists and none is selected
@@ -45,14 +53,23 @@ export function ShowtimePicker({ playId, onShowtimeSelect, selectedShowtimeId }:
           onShowtimeSelect(data[0]);
         }
       } catch (err) {
+        if (cancelled) {
+          return;
+        }
         setError(err instanceof Error ? err.message : 'Error loading showtimes');
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchShowtimes();
-  }, [playId, selectedShowtimeId, onShowtimeSelect]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [playId, prefetchedShowtimes, isLoadingPrefetchedShowtimes, selectedShowtimeId, onShowtimeSelect]);
 
   if (loading) {
     return (
@@ -78,6 +95,15 @@ export function ShowtimePicker({ playId, onShowtimeSelect, selectedShowtimeId }:
     );
   }
 
+  // Helper function to check if booking is closed for a showtime (1 hour before)
+  const isBookingClosed = (showtime: Play): boolean => {
+    const showtimeDate = new Date(showtime.dateTime);
+    const now = new Date();
+    const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000); // Add 1 hour
+    
+    return showtimeDate <= oneHourFromNow;
+  };
+
   // Group showtimes by date
   const groupedShowtimes = showtimes.reduce((groups, showtime) => {
     const date = new Date(showtime.dateTime);
@@ -88,13 +114,14 @@ export function ShowtimePicker({ playId, onShowtimeSelect, selectedShowtimeId }:
     }
     groups[dateKey].push(showtime);
     return groups;
-  }, {} as Record<string, Showtime[]>);
+  }, {} as Record<string, Play[]>);
 
   // If there's only one showtime, show it in a simplified format
   if (showtimes.length === 1) {
     const singleShowtime = showtimes[0];
     const showtimeDate = new Date(singleShowtime.dateTime);
     const isSelected = selectedShowtimeId === singleShowtime.id;
+    const bookingClosed = isBookingClosed(singleShowtime);
     
     return (
       <div className="space-y-4">
@@ -103,7 +130,7 @@ export function ShowtimePicker({ playId, onShowtimeSelect, selectedShowtimeId }:
           <p className="text-gray-600">Este evento tiene una única función</p>
         </div>
 
-        <Card className={`border-2 ${isSelected ? 'border-claret-blue bg-claret-blue/5' : 'border-gray-200'}`}>
+        <Card className={`border-2 ${isSelected ? 'border-claret-blue bg-claret-blue/5' : bookingClosed ? 'border-gray-300 bg-gray-50' : 'border-gray-200'}`}>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -128,7 +155,16 @@ export function ShowtimePicker({ playId, onShowtimeSelect, selectedShowtimeId }:
               </div>
             </div>
             
-            {!isSelected && (
+            {bookingClosed && (
+              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-center gap-2 text-amber-800">
+                  <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+                  <span className="font-medium text-sm">Reservas cerradas (1 hora antes del inicio)</span>
+                </div>
+              </div>
+            )}
+            
+            {!isSelected && !bookingClosed && (
               <Button
                 className="w-full mt-4 bg-claret-blue hover:bg-claret-navy text-white"
                 onClick={() => onShowtimeSelect(singleShowtime)}
@@ -181,17 +217,21 @@ export function ShowtimePicker({ playId, onShowtimeSelect, selectedShowtimeId }:
                   {dayShowtimes.map((showtime) => {
                     const showtimeDate = new Date(showtime.dateTime);
                     const isSelected = selectedShowtimeId === showtime.id;
+                    const bookingClosed = isBookingClosed(showtime);
                     
                     return (
                       <Button
                         key={showtime.id}
                         variant={isSelected ? "default" : "outline"}
+                        disabled={bookingClosed}
                         className={`h-auto p-4 flex flex-col items-center gap-2 ${
                           isSelected 
                             ? "bg-claret-blue text-white border-claret-blue" 
+                            : bookingClosed
+                              ? "opacity-50 cursor-not-allowed bg-gray-100 border-gray-300"
                             : "hover:border-claret-blue hover:text-claret-blue"
                         }`}
-                        onClick={() => onShowtimeSelect(showtime)}
+                        onClick={() => !bookingClosed && onShowtimeSelect(showtime)}
                       >
                         <div className="flex items-center gap-1">
                           <Clock className="w-4 h-4" />
@@ -202,6 +242,11 @@ export function ShowtimePicker({ playId, onShowtimeSelect, selectedShowtimeId }:
                         <div className="text-sm opacity-90">
                           €{showtime.basePrice}
                         </div>
+                        {bookingClosed && (
+                          <div className="text-xs text-amber-600 font-medium mt-1">
+                            Cerrado
+                          </div>
+                        )}
                       </Button>
                     );
                   })}

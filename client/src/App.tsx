@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "./lib/protected-route";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { ChristmasEffects } from "@/components/christmas-effects";
 import HomePage from "@/pages/home-page";
 import ObrasPage from "@/pages/obras-page";
 import GaleriaPage from "@/pages/galeria-page";
@@ -50,6 +51,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TooltipProvider>
+            <ChristmasEffects />
             <Toaster />
             <Router />
           </TooltipProvider>
